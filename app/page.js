@@ -119,7 +119,8 @@ export default function HomePage() {
 
   if (settings.mode === 'single_form' && featuredForm) {
     return (
-      <div style={{
+      <>
+        <div style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -350,8 +351,70 @@ export default function HomePage() {
           </div>
         )}
       </div>
-    );
-  }
+
+      {/* Lightbox para ampliar flyers */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            cursor: 'zoom-out',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              position: 'relative', 
+              maxWidth: '90%', 
+              maxHeight: '90%', 
+              animation: 'scaleUp 0.2s ease-out' 
+            }}
+          >
+            <img 
+              src={lightboxImage} 
+              alt="Flyer ampliado" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '90vh', 
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                objectFit: 'contain',
+                display: 'block'
+              }} 
+            />
+            <button 
+              onClick={() => setLightboxImage(null)}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                fontSize: '2rem',
+                cursor: 'pointer',
+                lineHeight: '1',
+                padding: '5px'
+              }}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
   return (
     <>
