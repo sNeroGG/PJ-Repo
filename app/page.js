@@ -17,6 +17,7 @@ export default function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showGateScreen, setShowGateScreen] = useState(true);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   useEffect(() => {
     // Cargar datos iniciales asíncronamente
@@ -177,12 +178,16 @@ export default function HomePage() {
                 overflow: 'hidden',
                 maxHeight: '300px',
                 display: 'flex',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                cursor: 'pointer'
               }}>
                 <img
                   src={featuredForm.flyerUrl}
                   alt={`Flyer de ${featuredForm.title}`}
-                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block' }}
+                  onClick={() => setLightboxImage(featuredForm.flyerUrl)}
+                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', transition: 'transform 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 />
               </div>
             )}
@@ -229,12 +234,16 @@ export default function HomePage() {
                 overflow: 'hidden',
                 maxHeight: '300px',
                 display: 'flex',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                cursor: 'pointer'
               }}>
                 <img
                   src={featuredForm.flyerUrl}
                   alt={`Flyer de ${featuredForm.title}`}
-                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block' }}
+                  onClick={() => setLightboxImage(featuredForm.flyerUrl)}
+                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', transition: 'transform 0.2s' }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 />
               </div>
             )}
@@ -499,6 +508,67 @@ export default function HomePage() {
           </p>
         </div>
       </footer>
+
+      {/* Lightbox para ampliar flyers */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            cursor: 'zoom-out',
+            animation: 'fadeIn 0.2s ease-out'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              position: 'relative', 
+              maxWidth: '90%', 
+              maxHeight: '90%', 
+              animation: 'scaleUp 0.2s ease-out' 
+            }}
+          >
+            <img 
+              src={lightboxImage} 
+              alt="Flyer ampliado" 
+              style={{ 
+                maxWidth: '100%', 
+                maxHeight: '90vh', 
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                objectFit: 'contain',
+                display: 'block'
+              }} 
+            />
+            <button 
+              onClick={() => setLightboxImage(null)}
+              style={{
+                position: 'absolute',
+                top: '-40px',
+                right: '0',
+                background: 'none',
+                border: 'none',
+                color: '#fff',
+                fontSize: '2rem',
+                cursor: 'pointer',
+                lineHeight: '1',
+                padding: '5px'
+              }}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
