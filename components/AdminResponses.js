@@ -8,6 +8,158 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
   const [selectedFormId, setSelectedFormId] = useState(forms[0]?.id || 'datos-personales');
   const [activeResponseId, setActiveResponseId] = useState(null);
   const [printResponse, setPrintResponse] = useState(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+
+  const handleDownloadAllPDF = async () => {
+    if (formResponses.length === 0 || !selectedForm) return;
+
+    try {
+      setIsDownloadingAll(true);
+
+      // Cargar jsPDF dinámicamente desde CDN si no existe ya
+      const jsPDFModule = await new Promise((resolve, reject) => {
+        if (window.jspdf && window.jspdf.jsPDF) {
+          resolve(window.jspdf.jsPDF);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        script.onload = () => {
+          if (window.jspdf && window.jspdf.jsPDF) {
+            resolve(window.jspdf.jsPDF);
+          } else {
+            reject(new Error('No se pudo inicializar jsPDF desde el script.'));
+          }
+        };
+        script.onerror = () => reject(new Error('Error al cargar la librería PDF (jsPDF).'));
+        document.head.appendChild(script);
+      });
+
+      const doc = new jsPDFModule({
+        orientation: 'p',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      const pageHeight = 842;
+      const margin = 40;
+      const maxWidth = 515; // 595 - 80
+      let y = 50;
+
+      // Dibujar Título Principal
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(26, 32, 44);
+      
+      const titleText = `Respuestas de Formulario: ${selectedForm.title}`;
+      const splitTitle = doc.splitTextToSize(titleText, maxWidth);
+      doc.text(splitTitle, margin, y);
+      y += (splitTitle.length * 18) + 5;
+
+      // Dibujar Timestamp de descarga
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(113, 128, 150);
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      doc.text(`Fecha y hora de descarga: ${dateStr}, ${timeStr}`, margin, y);
+      y += 15;
+
+      // Línea divisora
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(1);
+      doc.line(margin, y, 595 - margin, y);
+      y += 25;
+
+      // Ordenar las respuestas por fecha de envío (cronológico más antiguo a más nuevo)
+      const sortedResponses = [...formResponses].sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+
+      sortedResponses.forEach((resp, index) => {
+        // Control de salto de página antes del encabezado de la respuesta
+        if (y > pageHeight - 120) {
+          doc.addPage();
+          y = 50;
+        }
+
+        // Encabezado de la respuesta
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(45, 55, 72);
+
+        const isAnon = selectedForm.isAnonymous;
+        let participantText = '';
+        if (!isAnon && resp.answers) {
+          const name = resp.answers.nombre || '';
+          const lastName = resp.answers.apellido || '';
+          participantText = ` - Participante: ${name} ${lastName}`.trim();
+        }
+        
+        const submittedDate = new Date(resp.submittedAt).toLocaleString('es-ES');
+        const respHeader = `Respuesta #${index + 1}${participantText} (Enviado: ${submittedDate})`;
+        doc.text(respHeader, margin, y);
+        y += 8;
+
+        // Línea bajo el encabezado de respuesta
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, 595 - margin, y);
+        y += 12;
+
+        // Preguntas y respuestas
+        selectedForm.questions.forEach(q => {
+          const answer = resp.answers[q.id];
+          let answerDisplay = 'Sin responder';
+          
+          if (answer !== undefined && answer !== null) {
+            if (Array.isArray(answer)) {
+              answerDisplay = answer.join(', ');
+            } else if (typeof answer === 'boolean') {
+              answerDisplay = answer ? 'Sí' : 'No';
+            } else {
+              answerDisplay = answer.toString();
+            }
+          }
+
+          // Control de salto de página
+          if (y > pageHeight - 80) {
+            doc.addPage();
+            y = 50;
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(9);
+            doc.setTextColor(160, 174, 192);
+            doc.text(`... Continuación de Respuesta #${index + 1}`, margin, y);
+            y += 20;
+          }
+
+          // Pregunta
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(113, 128, 150);
+          const splitLabel = doc.splitTextToSize(`${q.label}:`, maxWidth);
+          doc.text(splitLabel, margin, y);
+          y += (splitLabel.length * 11);
+
+          // Respuesta
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.setTextColor(45, 55, 72);
+          const splitAnswer = doc.splitTextToSize(answerDisplay, maxWidth);
+          doc.text(splitAnswer, margin, y);
+          y += (splitAnswer.length * 12) + 8;
+        });
+
+        y += 15; // Espacio entre respuestas
+      });
+
+      doc.save(`Respuestas_Formulario_${selectedForm.id}.pdf`);
+    } catch (err) {
+      console.error('Error al generar PDF de todas las respuestas:', err);
+      alert('Hubo un problema al generar el archivo PDF: ' + err.message);
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
 
   // Filtrar respuestas del formulario seleccionado
   const formResponses = responses.filter(r => r.formId === selectedFormId);
@@ -243,8 +395,28 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
           
           {/* Columna Izquierda: Lista de Respuestas */}
           <div className="card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: 'var(--primary)' }}>
-              Respuestas Recibidas ({formResponses.length})
+            <h3 style={{ 
+              fontSize: '1.1rem', 
+              marginBottom: '16px', 
+              color: 'var(--primary)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px'
+            }}>
+              <span>Respuestas Recibidas ({formResponses.length})</span>
+              {formResponses.length > 0 && (
+                <button
+                  onClick={handleDownloadAllPDF}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  disabled={isDownloadingAll}
+                >
+                  <Download size={14} /> 
+                  <span>{isDownloadingAll ? 'Descargando...' : 'Descargar PDF'}</span>
+                </button>
+              )}
             </h3>
 
             {formResponses.length === 0 ? (
