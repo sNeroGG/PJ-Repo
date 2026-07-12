@@ -12,7 +12,19 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No se recibió ningún archivo.' }, { status: 400 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer;
+    if (typeof file.arrayBuffer === 'function') {
+      buffer = Buffer.from(await file.arrayBuffer());
+    } else if (file.stream && typeof file.stream === 'function') {
+      const chunks = [];
+      const stream = file.stream();
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      buffer = Buffer.concat(chunks);
+    } else {
+      buffer = Buffer.from(file);
+    }
     
     // Generar un nombre único para evitar colisiones
     const originalName = file.name || 'file.png';
@@ -63,6 +75,6 @@ export async function POST(request) {
     return NextResponse.json({ url: fileUrl });
   } catch (error) {
     console.error('Error en el endpoint de subida de archivos:', error);
-    return NextResponse.json({ error: 'Error interno del servidor al procesar el archivo.' }, { status: 500 });
+    return NextResponse.json({ error: `Error interno del servidor al procesar el archivo: ${error.message}` }, { status: 500 });
   }
 }
