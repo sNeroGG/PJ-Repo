@@ -280,6 +280,20 @@ export default function HomePage() {
           />
         )}
 
+        {q.type === 'select' && (
+          <select 
+            className="select" 
+            value={value || ''} 
+            onChange={e => handleInputChange(q.id, e.target.value)}
+            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
+          >
+            <option value="">-- Selecciona una opción --</option>
+            {q.options.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        )}
+
         {q.type === 'checkbox-group' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
             {q.options.map(opt => {
