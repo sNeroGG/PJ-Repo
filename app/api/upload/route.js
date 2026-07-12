@@ -15,10 +15,10 @@ export async function POST(request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     
     // Generar un nombre único para evitar colisiones
-    const originalName = file.name || 'image.png';
+    const originalName = file.name || 'file.png';
     const ext = path.extname(originalName) || '.png';
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const filename = `flyer-${uniqueSuffix}${ext}`;
+    const filename = `file-${uniqueSuffix}${ext}`;
 
     // Intentar subir a Supabase Storage si está configurado
     if (isSupabaseConfigured && supabase) {

@@ -121,6 +121,16 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
             }
           }
 
+          const fileUrl = resp.answers[q.id + '_file'];
+          if (fileUrl) {
+            const fileName = resp.answers[q.id + '_fileName'] || 'archivo';
+            if (answerDisplay === 'Sin responder') {
+              answerDisplay = `[Archivo Adjunto: ${fileName} - ${fileUrl}]`;
+            } else {
+              answerDisplay += `\n[Archivo Adjunto: ${fileName} - ${fileUrl}]`;
+            }
+          }
+
           // Control de salto de página
           if (y > pageHeight - 80) {
             doc.addPage();
@@ -262,6 +272,8 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {selectedForm.questions.map(q => {
               const answer = printResponse.answers[q.id];
+              const fileUrl = printResponse.answers[q.id + '_file'];
+              const fileName = printResponse.answers[q.id + '_fileName'] || 'archivo_adjunto';
               let answerDisplay = 'Sin responder';
               
               if (answer !== undefined && answer !== null) {
@@ -278,6 +290,11 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                 <div key={q.id} className="pdf-question-block">
                   <div className="pdf-question-title">{q.label}</div>
                   <div className="pdf-answer-text">{answerDisplay}</div>
+                  {fileUrl && (
+                    <div style={{ fontSize: '0.8rem', color: '#718096', marginTop: '4px' }}>
+                      <strong>Archivo adjunto:</strong> {fileName} ({fileUrl})
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -508,6 +525,8 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {selectedForm?.questions.map(q => {
                     const answer = activeResponse.answers[q.id];
+                    const fileUrl = activeResponse.answers[q.id + '_file'];
+                    const fileName = activeResponse.answers[q.id + '_fileName'] || 'archivo_adjunto';
                     let displayVal = <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Sin responder</span>;
 
                     if (answer !== undefined && answer !== null) {
@@ -534,6 +553,54 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                         <div style={{ fontSize: '0.95rem', color: 'var(--text-main)', paddingLeft: '4px' }}>
                           {displayVal}
                         </div>
+                        {fileUrl && (
+                          <div style={{ marginTop: '8px', paddingLeft: '4px' }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '4px' }}>
+                              Archivo Adjunto:
+                            </div>
+                            {fileUrl.match(/\.(jpeg|jpg|gif|png|webp)/i) ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{
+                                  width: '80px',
+                                  height: '60px',
+                                  borderRadius: '6px',
+                                  overflow: 'hidden',
+                                  border: '1px solid var(--border-color)',
+                                  backgroundColor: '#edf2f7',
+                                  display: 'flex',
+                                  flexShrink: 0
+                                }}>
+                                  <img src={fileUrl} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </a>
+                                <div>
+                                  <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' }}>
+                                    {fileName}
+                                  </a>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Haz clic en la imagen para ver original</div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#e2e8f0',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#4a5568',
+                                  flexShrink: 0
+                                }}>
+                                  <FileText size={18} />
+                                </div>
+                                <a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  {fileName} (Ver PDF)
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

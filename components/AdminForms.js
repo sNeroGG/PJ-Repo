@@ -11,6 +11,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [newFormIsAnon, setNewFormIsAnon] = useState(false);
   const [newQuestions, setNewQuestions] = useState([]);
   const [newFormFlyerUrl, setNewFormFlyerUrl] = useState('');
+  const [newFormLayoutMode, setNewFormLayoutMode] = useState('all-in-one');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   
@@ -25,6 +26,11 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [tempLabel, setTempLabel] = useState('');
   const [tempType, setTempType] = useState('text');
   const [tempRequired, setTempRequired] = useState(false);
+  const [tempAllowFile, setTempAllowFile] = useState(false);
+  const [tempFileRequired, setTempFileRequired] = useState(false);
+  const [tempImageUrl, setTempImageUrl] = useState('');
+  const [isUploadingQImage, setIsUploadingQImage] = useState(false);
+  const [uploadQImageError, setUploadQImageError] = useState('');
   const [tempOptionsStr, setTempOptionsStr] = useState(''); // Opciones separadas por coma
 
   const [copiedFormId, setCopiedFormId] = useState(null);
@@ -84,6 +90,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
             type: tempType,
             label: tempLabel,
             required: tempRequired,
+            allowFileAttachment: tempAllowFile,
+            fileRequired: tempAllowFile ? tempFileRequired : false,
+            imageUrl: tempImageUrl,
             options
           };
         }
@@ -98,6 +107,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
         type: tempType,
         label: tempLabel,
         required: tempRequired,
+        allowFileAttachment: tempAllowFile,
+        fileRequired: tempAllowFile ? tempFileRequired : false,
+        imageUrl: tempImageUrl,
         options
       };
       setNewQuestions([...newQuestions, questionObj]);
@@ -105,6 +117,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
 
     setTempLabel('');
     setTempRequired(false);
+    setTempAllowFile(false);
+    setTempFileRequired(false);
+    setTempImageUrl('');
+    setUploadQImageError('');
     setTempOptionsStr('');
     setTempType('text');
   };
@@ -114,6 +130,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempLabel(q.label);
     setTempType(q.type);
     setTempRequired(q.required);
+    setTempAllowFile(!!q.allowFileAttachment);
+    setTempFileRequired(!!q.fileRequired);
+    setTempImageUrl(q.imageUrl || '');
     setTempOptionsStr(q.options.join(', '));
     setEditingQuestionId(q.id);
   };
@@ -122,6 +141,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const handleCancelEditQuestion = () => {
     setTempLabel('');
     setTempRequired(false);
+    setTempAllowFile(false);
+    setTempFileRequired(false);
+    setTempImageUrl('');
+    setUploadQImageError('');
     setTempOptionsStr('');
     setTempType('text');
     setEditingQuestionId(null);
@@ -176,6 +199,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       description: newFormDesc,
       isActive: true,
       isAnonymous: newFormIsAnon,
+      layoutMode: newFormLayoutMode,
       createdAt: new Date().toISOString(),
       questions: newQuestions,
       flyerUrl: newFormFlyerUrl
@@ -230,6 +254,47 @@ export default function AdminForms({ forms, onRefreshForms }) {
     }
   };
 
+  const handleQuestionImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadQImageError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadQImageError('La imagen es demasiado grande. El límite es de 5MB.');
+      return;
+    }
+
+    setIsUploadingQImage(true);
+    setUploadQImageError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al subir la imagen.');
+      }
+
+      const data = await response.json();
+      setTempImageUrl(data.url);
+    } catch (error) {
+      console.error('Error uploading question image:', error);
+      setUploadQImageError(error.message || 'Error de red al subir la imagen.');
+    } finally {
+      setIsUploadingQImage(false);
+    }
+  };
+
   // Resetear estados de formulario
   const resetFormState = () => {
     setNewFormTitle('');
@@ -237,12 +302,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setNewFormIsAnon(false);
     setNewQuestions([]);
     setNewFormFlyerUrl('');
+    setNewFormLayoutMode('all-in-one');
     setIsUploading(false);
     setUploadError('');
     setIsEditMode(false);
     setActiveEditFormId(null);
     setTempLabel('');
     setTempRequired(false);
+    setTempAllowFile(false);
+    setTempFileRequired(false);
+    setTempImageUrl('');
+    setUploadQImageError('');
     setTempOptionsStr('');
     setTempType('text');
     setEditingQuestionId(null);
@@ -256,6 +326,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setNewFormIsAnon(form.isAnonymous);
     setNewQuestions([...form.questions]);
     setNewFormFlyerUrl(form.flyerUrl || '');
+    setNewFormLayoutMode(form.layoutMode || 'all-in-one');
     setIsEditMode(true);
     setActiveEditFormId(form.id);
     setShowCreateModal(true);
@@ -273,6 +344,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       title: newFormTitle,
       description: newFormDesc,
       isAnonymous: newFormIsAnon,
+      layoutMode: newFormLayoutMode,
       questions: newQuestions,
       flyerUrl: newFormFlyerUrl
     };
@@ -314,9 +386,20 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       {q.type}
                     </span>
                     {q.required && <span style={{ color: 'var(--danger)', marginLeft: '6px', fontWeight: 'bold' }}>* Obligatorio</span>}
+                    {q.allowFileAttachment && (
+                      <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', marginLeft: '6px', backgroundColor: '#e2e8f0', color: '#4a5568' }}>
+                        📎 Archivo {q.fileRequired ? 'Obligatorio' : 'Opcional'}
+                      </span>
+                    )}
                     {q.options.length > 0 && (
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
                         Opciones: {q.options.join(', ')}
+                      </div>
+                    )}
+                    {q.imageUrl && (
+                      <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Imagen:</span>
+                        <img src={q.imageUrl} alt="Pregunta" style={{ width: '40px', height: '26px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--border-color)' }} />
                       </div>
                     )}
                   </div>
@@ -443,6 +526,88 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       </div>
                     </div>
 
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px', marginTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <input 
+                          type="checkbox" 
+                          id={`tempAllowFileEdit-${q.id}`}
+                          style={{ width: '16px', height: '16px', marginRight: '6px', cursor: 'pointer' }}
+                          checked={tempAllowFile} 
+                          onChange={e => {
+                            setTempAllowFile(e.target.checked);
+                            if (!e.target.checked) setTempFileRequired(false);
+                          }} 
+                        />
+                        <label htmlFor={`tempAllowFileEdit-${q.id}`} className="form-label" style={{ margin: 0, fontSize: '0.8rem', cursor: 'pointer' }}>
+                          ¿Permitir archivo? (PDF/Imagen)
+                        </label>
+                      </div>
+
+                      {tempAllowFile && (
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <input 
+                            type="checkbox" 
+                            id={`tempFileReqEdit-${q.id}`}
+                            style={{ width: '16px', height: '16px', marginRight: '6px', cursor: 'pointer' }}
+                            checked={tempFileRequired} 
+                            onChange={e => setTempFileRequired(e.target.checked)} 
+                          />
+                          <label htmlFor={`tempFileReqEdit-${q.id}`} className="form-label" style={{ margin: 0, fontSize: '0.8rem', cursor: 'pointer' }}>
+                            ¿Archivo obligatorio?
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Imagen de Acompañamiento de la Pregunta (Subida por el Administrador) */}
+                    <div className="form-group" style={{ marginBottom: '10px', marginTop: '10px' }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                        Imagen Ilustrativa de la Pregunta (Opcional - subida por el Administrador)
+                      </label>
+                      
+                      {tempImageUrl ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#f7fafc', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                          <img src={tempImageUrl} alt="Preview" style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px' }} />
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexGrow: 1 }}>
+                            {tempImageUrl}
+                          </span>
+                          <button 
+                            type="button" 
+                            onClick={() => setTempImageUrl('')} 
+                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <input 
+                            type="file" 
+                            id={`q-image-input-edit-${q.id}`}
+                            accept="image/*" 
+                            style={{ display: 'none' }} 
+                            onChange={handleQuestionImageUpload}
+                            disabled={isUploadingQImage}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById(`q-image-input-edit-${q.id}`).click()}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}
+                            disabled={isUploadingQImage}
+                          >
+                            <Upload size={12} />
+                            {isUploadingQImage ? 'Subiendo...' : 'Subir Imagen'}
+                          </button>
+                        </div>
+                      )}
+                      {uploadQImageError && (
+                        <div style={{ color: 'var(--danger)', fontSize: '0.7rem', marginTop: '2px', fontWeight: 600 }}>
+                          {uploadQImageError}
+                        </div>
+                      )}
+                    </div>
+
                     {['select', 'checkbox-group'].includes(tempType) && (
                       <div className="form-group" style={{ marginBottom: '10px' }}>
                         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
@@ -537,6 +702,12 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       <span className="badge badge-warning">Anónimo</span>
                     ) : (
                       <span className="badge badge-info">Requiere Nombre</span>
+                    )}
+
+                    {form.layoutMode === 'one-by-one' ? (
+                      <span className="badge" style={{ backgroundColor: '#e9d8fd', color: '#6b46c1', fontSize: '0.75rem', padding: '2px 8px' }}>Paso a Paso</span>
+                    ) : (
+                      <span className="badge" style={{ backgroundColor: '#edf2f7', color: '#4a5568', fontSize: '0.75rem', padding: '2px 8px' }}>Vista Única</span>
                     )}
                     
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -845,6 +1016,18 @@ export default function AdminForms({ forms, onRefreshForms }) {
                   </label>
                 </div>
 
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Layout de Visualización</label>
+                  <select 
+                    className="select" 
+                    value={newFormLayoutMode} 
+                    onChange={e => setNewFormLayoutMode(e.target.value)}
+                  >
+                    <option value="all-in-one">Todas las preguntas en una sola vista (Scroll)</option>
+                    <option value="one-by-one">Pregunta por pregunta (Paso a paso / Wizard)</option>
+                  </select>
+                </div>
+
                 {/* Preguntas del Formulario (Sección de una sola columna) */}
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
@@ -921,6 +1104,89 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           Obligatorio
                         </label>
                       </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', marginTop: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <input 
+                          type="checkbox" 
+                          id="tempAllowFile"
+                          style={{ width: '16px', height: '16px', marginRight: '6px', cursor: 'pointer' }}
+                          checked={editingQuestionId ? false : tempAllowFile} 
+                          disabled={!!editingQuestionId}
+                          onChange={e => {
+                            setTempAllowFile(e.target.checked);
+                            if (!e.target.checked) setTempFileRequired(false);
+                          }} 
+                        />
+                        <label htmlFor="tempAllowFile" className="form-label" style={{ margin: 0, fontSize: '0.85rem', cursor: 'pointer', opacity: editingQuestionId ? 0.5 : 1 }}>
+                          ¿Permitir archivo? (PDF/Imagen)
+                        </label>
+                      </div>
+
+                      {!editingQuestionId && tempAllowFile && (
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <input 
+                            type="checkbox" 
+                            id="tempFileReq"
+                            style={{ width: '16px', height: '16px', marginRight: '6px', cursor: 'pointer' }}
+                            checked={tempFileRequired} 
+                            onChange={e => setTempFileRequired(e.target.checked)} 
+                          />
+                          <label htmlFor="tempFileReq" className="form-label" style={{ margin: 0, fontSize: '0.85rem', cursor: 'pointer' }}>
+                            ¿Archivo obligatorio?
+                          </label>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Imagen de Acompañamiento de la Pregunta (Subida por el Administrador) */}
+                    <div className="form-group" style={{ marginBottom: '12px', marginTop: '12px' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600, opacity: editingQuestionId ? 0.5 : 1 }}>
+                        Imagen Ilustrativa de la Pregunta (Opcional - subida por el Administrador)
+                      </label>
+                      
+                      {!editingQuestionId && tempImageUrl ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: '#f7fafc', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <img src={tempImageUrl} alt="Preview" style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexGrow: 1 }}>
+                            {tempImageUrl}
+                          </span>
+                          <button 
+                            type="button" 
+                            onClick={() => setTempImageUrl('')} 
+                            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <input 
+                            type="file" 
+                            id="q-image-input-new"
+                            accept="image/*" 
+                            style={{ display: 'none' }} 
+                            onChange={handleQuestionImageUpload}
+                            disabled={!!editingQuestionId || isUploadingQImage}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById('q-image-input-new').click()}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}
+                            disabled={!!editingQuestionId || isUploadingQImage}
+                          >
+                            <Upload size={14} />
+                            {isUploadingQImage ? 'Subiendo...' : 'Subir Imagen para la Pregunta'}
+                          </button>
+                        </div>
+                      )}
+                      {uploadQImageError && (
+                        <div style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>
+                          {uploadQImageError}
+                        </div>
+                      )}
                     </div>
 
                     {['select', 'checkbox-group'].includes(editingQuestionId ? '' : tempType) && (
