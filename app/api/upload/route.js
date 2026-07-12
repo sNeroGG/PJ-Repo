@@ -32,6 +32,8 @@ export async function POST(request) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     const filename = `file-${uniqueSuffix}${ext}`;
 
+    const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME !== undefined;
+
     // Intentar subir a Supabase Storage si está configurado
     if (isSupabaseConfigured && supabase) {
       try {
@@ -44,7 +46,10 @@ export async function POST(request) {
           });
 
         if (error) {
-          console.warn('Error al subir a Supabase storage, usando fallback local:', error.message);
+          console.warn('Error al subir a Supabase storage:', error.message);
+          if (isServerless) {
+            return NextResponse.json({ error: `Error de Supabase: ${error.message}. Por favor verifica tus credenciales y que el bucket 'flyers' exista en tu proyecto.` }, { status: 400 });
+          }
         } else if (data) {
           // Obtener la URL pública del archivo subido
           const { data: publicUrlData } = supabase.storage
@@ -56,10 +61,17 @@ export async function POST(request) {
           }
         }
       } catch (sbError) {
-        console.warn('Excepción al subir a Supabase, usando fallback local:', sbError);
+        console.error('Excepción al subir a Supabase:', sbError);
+        if (isServerless) {
+          return NextResponse.json({ error: `Excepción de conexión con Supabase: ${sbError.message}` }, { status: 500 });
+        }
       }
     }
     
+    if (isServerless) {
+      return NextResponse.json({ error: 'La subida de archivos local no está soportada en Vercel. Por favor, configura las variables de entorno de Supabase.' }, { status: 400 });
+    }
+
     // Fallback: Guardar localmente en public/uploads
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
     
