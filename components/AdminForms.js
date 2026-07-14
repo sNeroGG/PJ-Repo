@@ -746,11 +746,18 @@ export default function AdminForms({ forms, onRefreshForms }) {
         </button>
       </div>
 
-      {/* Grid/Lista de Formularios */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {forms.map(form => {
-          const origin = typeof window !== 'undefined' ? window.location.origin : '';
-          const shareUrl = `${origin}/form/${form.id}`;
+        {[...forms]
+          .sort((a, b) => {
+            if (a.isActive && !b.isActive) return -1;
+            if (!a.isActive && b.isActive) return 1;
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+          })
+          .map(form => {
+            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+            const shareUrl = `${origin}/form/${form.id}`;
           
           return (
             <div key={form.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
