@@ -6,6 +6,8 @@ import Navbar from '../components/Navbar';
 import EventCalendar from '../components/EventCalendar';
 import { storageService } from '../lib/storage';
 import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit } from '../lib/formLogic';
+import { shouldShowMaintenanceBlock } from '../lib/portalRules';
+import MaintenanceBlock from '../components/MaintenanceBlock';
 import { ClipboardCopy, Heart, Sparkles, BookOpen, Star, CheckCircle2, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
@@ -494,6 +496,10 @@ export default function HomePage() {
         <p style={{ color: 'var(--text-muted)' }}>Cargando...</p>
       </div>
     );
+  }
+
+  if (shouldShowMaintenanceBlock(settings, forms)) {
+    return <MaintenanceBlock />;
   }
 
   if (settings.mode === 'single_form' && featuredForm) {

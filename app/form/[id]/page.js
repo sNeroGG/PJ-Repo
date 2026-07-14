@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
 import { storageService } from '../../../lib/storage';
 import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit } from '../../../lib/formLogic';
+import { shouldHideNavbarOnFormLink } from '../../../lib/portalRules';
 import { ClipboardList, CheckCircle2, AlertCircle, ArrowLeft, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function FillFormPage() {
@@ -13,6 +14,8 @@ export default function FillFormPage() {
   const formId = params.id;
 
   const [form, setForm] = useState(null);
+  const [settings, setSettings] = useState({ mode: 'normal', featuredFormId: null });
+  const [forms, setForms] = useState([]);
   const [answers, setAnswers] = useState({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -24,10 +27,15 @@ export default function FillFormPage() {
   useEffect(() => {
     if (formId) {
       const loadForm = async () => {
-        const f = await storageService.getFormById(formId);
+        const [f, s, allForms] = await Promise.all([
+          storageService.getFormById(formId),
+          storageService.getSettings(),
+          storageService.getForms(),
+        ]);
+        setSettings(s);
+        setForms(allForms);
         if (f) {
           setForm(f);
-          // Inicializar respuestas
           const initialAnswers = {};
           f.questions.forEach(q => {
             if (q.type === 'checkbox-group') {
@@ -45,6 +53,8 @@ export default function FillFormPage() {
     }
   }, [formId]);
 
+  const hideNavbar = shouldHideNavbarOnFormLink(settings, forms);
+
   const visibleQuestions = useMemo(
     () => getVisibleQuestions(form?.questions || [], answers),
     [form, answers]
@@ -61,7 +71,7 @@ export default function FillFormPage() {
   if (error) {
     return (
       <>
-        <Navbar />
+        {!hideNavbar && <Navbar />}
         <div className="container" style={{ padding: '60px 20px', maxWidth: '600px' }}>
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             <AlertCircle size={48} color="var(--danger)" style={{ marginBottom: '16px' }} />
@@ -79,7 +89,7 @@ export default function FillFormPage() {
   if (!form) {
     return (
       <>
-        <Navbar />
+        {!hideNavbar && <Navbar />}
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
           <p style={{ color: 'var(--text-muted)' }}>Cargando formulario...</p>
         </div>
@@ -91,7 +101,7 @@ export default function FillFormPage() {
   if (!form.isActive) {
     return (
       <>
-        <Navbar />
+        {!hideNavbar && <Navbar />}
         <div className="container" style={{ padding: '60px 20px', maxWidth: '600px' }}>
           <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
             <AlertCircle size={48} color="var(--danger)" style={{ marginBottom: '16px' }} />
@@ -525,7 +535,7 @@ export default function FillFormPage() {
 
   return (
     <>
-      <Navbar />
+      {!hideNavbar && <Navbar />}
 
       <div className="container" style={{ padding: '40px 20px', maxWidth: '750px', flex: 1 }}>
         {isSubmitted ? (
