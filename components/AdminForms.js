@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload } from 'lucide-react';
 import { storageService } from '../lib/storage';
+import ImageCropperModal from './ImageCropperModal';
 
 export default function AdminForms({ forms, onRefreshForms }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -34,6 +35,13 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [tempOptionsStr, setTempOptionsStr] = useState(''); // Opciones separadas por coma
 
   const [copiedFormId, setCopiedFormId] = useState(null);
+
+  // Estados del Recortador de Imagen
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperImage, setCropperImage] = useState('');
+  const [cropperTarget, setCropperTarget] = useState(''); // 'flyer' o 'question'
+  const [cropperFileName, setCropperFileName] = useState('');
+  const [cropperFileType, setCropperFileType] = useState('');
 
   // Copiar link de compartir al portapapeles
   const handleCopyLink = (formId) => {
@@ -212,21 +220,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     resetFormState();
   };
 
-  // Manejar la carga del archivo flyer
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('La imagen es demasiado grande. El límite es de 5MB.');
-      return;
-    }
-
+  // 1. Subir flyer final (ya recortado)
+  const uploadFlyer = async (file) => {
     setIsUploading(true);
     setUploadError('');
 
@@ -254,20 +249,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     }
   };
 
-  const handleQuestionImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setUploadQImageError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadQImageError('La imagen es demasiado grande. El límite es de 5MB.');
-      return;
-    }
-
+  // 2. Subir imagen de pregunta final (ya recortada)
+  const uploadQuestionImage = async (file) => {
     setIsUploadingQImage(true);
     setUploadQImageError('');
 
@@ -292,6 +275,69 @@ export default function AdminForms({ forms, onRefreshForms }) {
       setUploadQImageError(error.message || 'Error de red al subir la imagen.');
     } finally {
       setIsUploadingQImage(false);
+    }
+  };
+
+  // 3. Interceptores de selección
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('La imagen es demasiado grande. El límite es de 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropperImage(reader.result);
+      setCropperFileName(file.name);
+      setCropperFileType(file.type);
+      setCropperTarget('flyer');
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = null; // resetear input
+  };
+
+  const handleQuestionImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadQImageError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadQImageError('La imagen es demasiado grande. El límite es de 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropperImage(reader.result);
+      setCropperFileName(file.name);
+      setCropperFileType(file.type);
+      setCropperTarget('question');
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = null; // resetear input
+  };
+
+  // 4. Completar recorte
+  const handleCropComplete = async (croppedFile) => {
+    setCropperOpen(false);
+    if (cropperTarget === 'flyer') {
+      await uploadFlyer(croppedFile);
+    } else if (cropperTarget === 'question') {
+      await uploadQuestionImage(croppedFile);
     }
   };
 
@@ -1246,6 +1292,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
           </div>
         </div>
       )}
+
+      {/* Modal de Recorte de Imágenes */}
+      <ImageCropperModal
+        isOpen={cropperOpen}
+        imageSrc={cropperImage}
+        fileName={cropperFileName}
+        fileType={cropperFileType}
+        defaultAspectRatio={cropperTarget === 'flyer' ? 16/9 : null}
+        onCrop={handleCropComplete}
+        onClose={() => setCropperOpen(false)}
+      />
     </div>
   );
 }
