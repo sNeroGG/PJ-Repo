@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from 'react';
-import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload } from 'lucide-react';
+import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload, GitBranch } from 'lucide-react';
 import { storageService } from '../lib/storage';
+import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions } from '../lib/formLogic';
 import ImageCropperModal from './ImageCropperModal';
 
 export default function AdminForms({ forms, onRefreshForms }) {
@@ -34,6 +35,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [isUploadingQImage, setIsUploadingQImage] = useState(false);
   const [uploadQImageError, setUploadQImageError] = useState('');
   const [tempOptionsStr, setTempOptionsStr] = useState(''); // Opciones separadas por coma
+  const [tempShowWhenParentId, setTempShowWhenParentId] = useState('');
+  const [tempShowWhenValue, setTempShowWhenValue] = useState('');
 
   const [copiedFormId, setCopiedFormId] = useState(null);
 
@@ -80,6 +83,39 @@ export default function AdminForms({ forms, onRefreshForms }) {
     }
   };
 
+  const buildShowWhenFromTemp = () => {
+    if (!tempShowWhenParentId || !tempShowWhenValue) return undefined;
+    const parent = newQuestions.find((q) => q.id === tempShowWhenParentId);
+    if (!parent) return undefined;
+    return buildShowWhen(parent, tempShowWhenValue);
+  };
+
+  const insertQuestionAtCorrectPosition = (questionObj, isNew) => {
+    if (isNew && questionObj.showWhen) {
+      const parentIdx = newQuestions.findIndex((q) => q.id === questionObj.showWhen.questionId);
+      if (parentIdx >= 0) {
+        const updated = [...newQuestions];
+        updated.splice(parentIdx + 1, 0, questionObj);
+        return updated;
+      }
+    }
+    return [...newQuestions, questionObj];
+  };
+
+  const resetTempQuestionFields = () => {
+    setTempLabel('');
+    setTempDescription('');
+    setTempRequired(false);
+    setTempAllowFile(false);
+    setTempFileRequired(false);
+    setTempImageUrl('');
+    setUploadQImageError('');
+    setTempOptionsStr('');
+    setTempType('text');
+    setTempShowWhenParentId('');
+    setTempShowWhenValue('');
+  };
+
   // Añadir o actualizar una pregunta
   const handleAddQuestion = () => {
     if (!tempLabel.trim()) return;
@@ -90,11 +126,13 @@ export default function AdminForms({ forms, onRefreshForms }) {
       options = tempOptionsStr.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
     }
 
+    const showWhen = buildShowWhenFromTemp();
+
     if (editingQuestionId) {
       // Modificar pregunta existente
       const updated = newQuestions.map(q => {
         if (q.id === editingQuestionId) {
-          return {
+          const updatedQ = {
             ...q,
             type: tempType,
             label: tempLabel,
@@ -105,6 +143,12 @@ export default function AdminForms({ forms, onRefreshForms }) {
             imageUrl: tempImageUrl,
             options
           };
+          if (showWhen) {
+            updatedQ.showWhen = showWhen;
+          } else {
+            delete updatedQ.showWhen;
+          }
+          return updatedQ;
         }
         return q;
       });
@@ -121,20 +165,13 @@ export default function AdminForms({ forms, onRefreshForms }) {
         allowFileAttachment: tempAllowFile,
         fileRequired: tempAllowFile ? tempFileRequired : false,
         imageUrl: tempImageUrl,
-        options
+        options,
+        ...(showWhen ? { showWhen } : {})
       };
-      setNewQuestions([...newQuestions, questionObj]);
+      setNewQuestions(insertQuestionAtCorrectPosition(questionObj, true));
     }
 
-    setTempLabel('');
-    setTempDescription('');
-    setTempRequired(false);
-    setTempAllowFile(false);
-    setTempFileRequired(false);
-    setTempImageUrl('');
-    setUploadQImageError('');
-    setTempOptionsStr('');
-    setTempType('text');
+    resetTempQuestionFields();
   };
 
   // Iniciar edición de una pregunta individual
@@ -146,21 +183,30 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempAllowFile(!!q.allowFileAttachment);
     setTempFileRequired(!!q.fileRequired);
     setTempImageUrl(q.imageUrl || '');
-    setTempOptionsStr(q.options.join(', '));
+    setTempOptionsStr((q.options || []).join(', '));
+    setTempShowWhenParentId(q.showWhen?.questionId || '');
+    setTempShowWhenValue(q.showWhen?.value || '');
     setEditingQuestionId(q.id);
   };
 
-  // Cancelar edición de pregunta
-  const handleCancelEditQuestion = () => {
+  const handleAddConditionalFromOption = (parentQuestion, optionValue) => {
+    handleCancelEditQuestion();
+    setTempShowWhenParentId(parentQuestion.id);
+    setTempShowWhenValue(optionValue);
     setTempLabel('');
     setTempDescription('');
+    setTempType('text');
     setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
     setTempImageUrl('');
-    setUploadQImageError('');
     setTempOptionsStr('');
-    setTempType('text');
+    document.getElementById('add-question-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  // Cancelar edición de pregunta
+  const handleCancelEditQuestion = () => {
+    resetTempQuestionFields();
     setEditingQuestionId(null);
   };
 
@@ -359,17 +405,70 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setUploadError('');
     setIsEditMode(false);
     setActiveEditFormId(null);
-    setTempLabel('');
-    setTempDescription('');
-    setTempRequired(false);
-    setTempAllowFile(false);
-    setTempFileRequired(false);
-    setTempImageUrl('');
-    setUploadQImageError('');
-    setTempOptionsStr('');
-    setTempType('text');
+    resetTempQuestionFields();
     setEditingQuestionId(null);
     setShowCreateModal(false);
+  };
+
+  const renderConditionalFields = (questionIndex, fieldIdPrefix) => {
+    const parentCandidates = getParentQuestionsWithOptions(newQuestions, questionIndex);
+    const selectedParent = newQuestions.find((q) => q.id === tempShowWhenParentId);
+    const availableOptions = selectedParent?.options || [];
+
+    if (parentCandidates.length === 0 && !tempShowWhenParentId) return null;
+
+    return (
+      <div
+        style={{
+          marginBottom: '10px',
+          padding: '12px',
+          backgroundColor: '#f0f5ff',
+          borderRadius: '8px',
+          border: '1px solid #bee3f8',
+        }}
+      >
+        <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+          <GitBranch size={14} />
+          Mostrar solo cuando (pregunta condicional)
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <select
+            className="select"
+            value={tempShowWhenParentId}
+            onChange={(e) => {
+              setTempShowWhenParentId(e.target.value);
+              setTempShowWhenValue('');
+            }}
+          >
+            <option value="">Siempre visible (sin condición)</option>
+            {parentCandidates.map((pq) => (
+              <option key={pq.id} value={pq.id}>
+                {pq.label}
+              </option>
+            ))}
+          </select>
+          {tempShowWhenParentId && (
+            <select
+              className="select"
+              value={tempShowWhenValue}
+              onChange={(e) => setTempShowWhenValue(e.target.value)}
+            >
+              <option value="">-- Selecciona la respuesta --</option>
+              {availableOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        {tempShowWhenParentId && tempShowWhenValue && selectedParent && (
+          <p style={{ fontSize: '0.72rem', color: '#2b6cb0', marginTop: '8px', marginBottom: 0, fontStyle: 'italic' }}>
+            Esta pregunta solo aparecerá si el usuario elige &quot;{tempShowWhenValue}&quot; en &quot;{selectedParent.label}&quot;.
+          </p>
+        )}
+      </div>
+    );
   };
 
   // Iniciar edición de formulario
@@ -439,7 +538,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
                         {q.type}
                       </span>
+                      {q.showWhen && (
+                        <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', backgroundColor: '#ebf8ff', color: '#2b6cb0', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <GitBranch size={10} /> Condicional
+                        </span>
+                      )}
                     </div>
+                    {q.showWhen && (
+                      <div style={{ color: '#2b6cb0', fontSize: '0.72rem', marginTop: '4px', fontWeight: 500 }}>
+                        {formatShowWhenLabel(q.showWhen, newQuestions)}
+                      </div>
+                    )}
                     {q.description && (
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px', fontStyle: 'italic' }}>
                         {q.description}
@@ -451,9 +560,26 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         📎 Archivo {q.fileRequired ? 'Obligatorio' : 'Opcional'}
                       </span>
                     )}
-                    {q.options.length > 0 && (
+                    {(q.options || []).length > 0 && (
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
-                        Opciones: {q.options.join(', ')}
+                        Opciones: {(q.options || []).join(', ')}
+                      </div>
+                    )}
+                    {['select', 'checkbox-group'].includes(q.type) && (q.options || []).length > 0 && !isEditing && (
+                      <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Preguntas condicionales:</span>
+                        {(q.options || []).map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => handleAddConditionalFromOption(q, opt)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize: '0.68rem', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            title={`Crear pregunta que aparece solo si se elige "${opt}"`}
+                          >
+                            <Plus size={10} /> &quot;{opt}&quot;
+                          </button>
+                        ))}
                       </div>
                     )}
                     {q.imageUrl && (
@@ -693,6 +819,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         />
                       </div>
                     )}
+
+                    {renderConditionalFields(idx, `edit-${q.id}`)}
 
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                       <button 
@@ -1118,26 +1246,34 @@ export default function AdminForms({ forms, onRefreshForms }) {
                   </div>
 
                   {/* Bloque para AÑADIR una pregunta */}
-                  <div style={{ 
-                    backgroundColor: '#fff9e6', 
+                  <div
+                    id="add-question-section"
+                    style={{ 
+                    backgroundColor: tempShowWhenParentId ? '#f0f5ff' : '#fff9e6', 
                     padding: '16px', 
                     borderRadius: '10px', 
-                    border: '1px solid #ffe8a1',
+                    border: tempShowWhenParentId ? '1px solid #bee3f8' : '1px solid #ffe8a1',
                     transition: 'var(--transition)',
                     opacity: editingQuestionId ? 0.7 : 1
                   }}>
                     <h5 style={{ 
                       fontSize: '0.95rem', 
-                      color: editingQuestionId ? 'var(--text-muted)' : 'hsl(42, 90%, 25%)', 
+                      color: editingQuestionId ? 'var(--text-muted)' : tempShowWhenParentId ? '#2b6cb0' : 'hsl(42, 90%, 25%)', 
                       marginBottom: '12px', 
                       fontWeight: 700,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6.5px'
                     }}>
-                      <Plus size={16} />
-                      <span>Agregar Nueva Pregunta</span>
+                      {tempShowWhenParentId ? <GitBranch size={16} /> : <Plus size={16} />}
+                      <span>{tempShowWhenParentId ? 'Agregar Pregunta Condicional' : 'Agregar Nueva Pregunta'}</span>
                     </h5>
+                    {tempShowWhenParentId && tempShowWhenValue && (
+                      <p style={{ fontSize: '0.78rem', color: '#2b6cb0', marginBottom: '12px', fontStyle: 'italic' }}>
+                        Aparecerá solo si el usuario elige &quot;{tempShowWhenValue}&quot; en &quot;{newQuestions.find(q => q.id === tempShowWhenParentId)?.label}&quot;.
+                        <button type="button" onClick={() => { setTempShowWhenParentId(''); setTempShowWhenValue(''); }} style={{ marginLeft: '8px', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}>Quitar condición</button>
+                      </p>
+                    )}
                     
                     <div className="form-group" style={{ marginBottom: '12px' }}>
                       <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>Texto de la pregunta / Etiqueta</label>
@@ -1294,6 +1430,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         />
                       </div>
                     )}
+
+                    {!editingQuestionId && renderConditionalFields(newQuestions.length, 'new')}
 
                     <button 
                       type="button" 

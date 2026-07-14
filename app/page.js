@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import EventCalendar from '../components/EventCalendar';
 import { storageService } from '../lib/storage';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit } from '../lib/formLogic';
 import { ClipboardCopy, Heart, Sparkles, BookOpen, Star, CheckCircle2, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
@@ -55,14 +56,30 @@ export default function HomePage() {
     loadData();
   }, []);
 
+  const visibleQuestions = useMemo(
+    () => getVisibleQuestions(featuredForm?.questions || [], answers),
+    [featuredForm, answers]
+  );
+
+  useEffect(() => {
+    if (!featuredForm) return;
+    const visible = getVisibleQuestions(featuredForm.questions, answers);
+    if (currentStep >= visible.length && visible.length > 0) {
+      setCurrentStep(visible.length - 1);
+    }
+  }, [answers, featuredForm, currentStep]);
+
   const handleInputChange = (questionId, value) => {
-    setAnswers({
+    if (!featuredForm) return;
+    const newAnswers = clearHiddenQuestionAnswers(featuredForm.questions, {
       ...answers,
       [questionId]: value
     });
+    setAnswers(newAnswers);
   };
 
   const handleCheckboxChange = (questionId, option, checked) => {
+    if (!featuredForm) return;
     const currentValues = [...(answers[questionId] || [])];
     if (checked) {
       if (!currentValues.includes(option)) {
@@ -74,10 +91,11 @@ export default function HomePage() {
         currentValues.splice(idx, 1);
       }
     }
-    setAnswers({
+    const newAnswers = clearHiddenQuestionAnswers(featuredForm.questions, {
       ...answers,
       [questionId]: currentValues
     });
+    setAnswers(newAnswers);
   };
 
   const handleQuestionFileUpload = async (questionId, file) => {
@@ -171,7 +189,7 @@ export default function HomePage() {
     e.preventDefault();
 
     let isValid = true;
-    featuredForm.questions.forEach(q => {
+    visibleQuestions.forEach(q => {
       if (!validateQuestion(q)) {
         isValid = false;
       }
@@ -185,7 +203,7 @@ export default function HomePage() {
     setIsSubmitting(true);
     await storageService.saveResponse({
       formId: featuredForm.id,
-      answers: answers
+      answers: getSanitizedAnswersForSubmit(featuredForm.questions, answers)
     });
     setIsSubmitting(false);
     setIsSubmitted(true);
@@ -622,13 +640,13 @@ export default function HomePage() {
                   {/* Barra de Progreso */}
                   <div style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
-                      <span>Pregunta {currentStep + 1} de {featuredForm.questions.length}</span>
-                      <span>{Math.round((currentStep / featuredForm.questions.length) * 100)}% Completado</span>
+                      <span>Pregunta {currentStep + 1} de {visibleQuestions.length}</span>
+                      <span>{visibleQuestions.length > 0 ? Math.round((currentStep / visibleQuestions.length) * 100) : 0}% Completado</span>
                     </div>
                     <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                       <div 
                         style={{ 
-                          width: `${(currentStep / featuredForm.questions.length) * 100}%`, 
+                          width: `${visibleQuestions.length > 0 ? (currentStep / visibleQuestions.length) * 100 : 0}%`, 
                           height: '100%', 
                           backgroundColor: 'var(--accent)', 
                           borderRadius: '3px',
@@ -640,7 +658,7 @@ export default function HomePage() {
 
                   {/* Renderizar Pregunta Actual */}
                   {(() => {
-                    const q = featuredForm.questions[currentStep];
+                    const q = visibleQuestions[currentStep];
                     if (!q) return null;
                     return renderQuestionInput(q, currentStep);
                   })()}
@@ -669,11 +687,11 @@ export default function HomePage() {
                       <ChevronLeft size={16} /> {currentStep > 0 ? 'Anterior' : 'Atrás'}
                     </button>
 
-                    {currentStep < featuredForm.questions.length - 1 ? (
+                    {currentStep < visibleQuestions.length - 1 ? (
                       <button 
                         type="button" 
                         onClick={() => {
-                          if (validateQuestion(featuredForm.questions[currentStep])) {
+                          if (validateQuestion(visibleQuestions[currentStep])) {
                             setCurrentStep(currentStep + 1);
                           } else {
                             alert('Por favor, responde la pregunta y sube el archivo si es obligatorio para continuar.');
@@ -700,7 +718,7 @@ export default function HomePage() {
                 /* MODO VISTA ÚNICA (TRADICIONAL) */
                 <div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-                    {featuredForm.questions.map((q, idx) => renderQuestionInput(q, idx))}
+                    {visibleQuestions.map((q, idx) => renderQuestionInput(q, idx))}
                   </div>
 
                   <div style={{ 

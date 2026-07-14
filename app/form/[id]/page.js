@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
 import { storageService } from '../../../lib/storage';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit } from '../../../lib/formLogic';
 import { ClipboardList, CheckCircle2, AlertCircle, ArrowLeft, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function FillFormPage() {
@@ -43,6 +44,19 @@ export default function FillFormPage() {
       loadForm();
     }
   }, [formId]);
+
+  const visibleQuestions = useMemo(
+    () => getVisibleQuestions(form?.questions || [], answers),
+    [form, answers]
+  );
+
+  useEffect(() => {
+    if (!form) return;
+    const visible = getVisibleQuestions(form.questions, answers);
+    if (currentStep >= visible.length && visible.length > 0) {
+      setCurrentStep(visible.length - 1);
+    }
+  }, [answers, form, currentStep]);
 
   if (error) {
     return (
@@ -96,10 +110,11 @@ export default function FillFormPage() {
 
   // Manejar cambios en campos normales
   const handleInputChange = (questionId, value) => {
-    setAnswers({
+    const newAnswers = clearHiddenQuestionAnswers(form.questions, {
       ...answers,
       [questionId]: value
     });
+    setAnswers(newAnswers);
   };
 
   // Manejar cambios en campos checkbox (selección múltiple)
@@ -117,10 +132,11 @@ export default function FillFormPage() {
       }
     }
 
-    setAnswers({
+    const newAnswers = clearHiddenQuestionAnswers(form.questions, {
       ...answers,
       [questionId]: currentValues
     });
+    setAnswers(newAnswers);
   };
 
   const handleQuestionFileUpload = async (questionId, file) => {
@@ -215,7 +231,7 @@ export default function FillFormPage() {
     e.preventDefault();
 
     let isValid = true;
-    form.questions.forEach(q => {
+    visibleQuestions.forEach(q => {
       if (!validateQuestion(q)) {
         isValid = false;
       }
@@ -226,10 +242,10 @@ export default function FillFormPage() {
       return;
     }
 
-    // Guardar respuesta
+    // Guardar respuesta (solo preguntas visibles)
     await storageService.saveResponse({
       formId: form.id,
-      answers: answers
+      answers: getSanitizedAnswersForSubmit(form.questions, answers)
     });
 
     setIsSubmitted(true);
@@ -617,13 +633,13 @@ export default function FillFormPage() {
                   {/* Barra de Progreso */}
                   <div style={{ marginBottom: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
-                      <span>Pregunta {currentStep + 1} de {form.questions.length}</span>
-                      <span>{Math.round((currentStep / form.questions.length) * 100)}% Completado</span>
+                      <span>Pregunta {currentStep + 1} de {visibleQuestions.length}</span>
+                      <span>{visibleQuestions.length > 0 ? Math.round((currentStep / visibleQuestions.length) * 100) : 0}% Completado</span>
                     </div>
                     <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
                       <div 
                         style={{ 
-                          width: `${(currentStep / form.questions.length) * 100}%`, 
+                          width: `${visibleQuestions.length > 0 ? (currentStep / visibleQuestions.length) * 100 : 0}%`, 
                           height: '100%', 
                           backgroundColor: 'var(--accent)', 
                           borderRadius: '3px',
@@ -635,7 +651,7 @@ export default function FillFormPage() {
 
                   {/* Renderizar Pregunta Actual */}
                   {(() => {
-                    const q = form.questions[currentStep];
+                    const q = visibleQuestions[currentStep];
                     if (!q) return null;
                     return renderQuestionInput(q, currentStep);
                   })()}
@@ -664,11 +680,11 @@ export default function FillFormPage() {
                       <ChevronLeft size={16} /> {currentStep > 0 ? 'Anterior' : 'Cancelar'}
                     </button>
 
-                    {currentStep < form.questions.length - 1 ? (
+                    {currentStep < visibleQuestions.length - 1 ? (
                       <button 
                         type="button" 
                         onClick={() => {
-                          if (validateQuestion(form.questions[currentStep])) {
+                          if (validateQuestion(visibleQuestions[currentStep])) {
                             setCurrentStep(currentStep + 1);
                           } else {
                             alert('Por favor, responde la pregunta y sube el archivo si es obligatorio para continuar.');
@@ -689,7 +705,7 @@ export default function FillFormPage() {
               ) : (
                 /* MODO VISTA ÚNICA (TRADICIONAL) */
                 <div>
-                  {form.questions.map((q, idx) => renderQuestionInput(q, idx))}
+                  {visibleQuestions.map((q, idx) => renderQuestionInput(q, idx))}
 
                   <div style={{ 
                     borderTop: '1px solid var(--border-color)', 
