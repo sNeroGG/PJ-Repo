@@ -197,9 +197,22 @@ export default function HomePage() {
 
     return (
       <div key={q.id} className="form-group" style={{ marginBottom: '20px', textAlign: 'left', animation: 'fadeIn 0.2s ease-out' }}>
-        <label className="form-label" style={{ fontWeight: 600 }}>
+        <label className="form-label" style={{ fontWeight: 600, marginBottom: q.description ? '4px' : '8px' }}>
           {idx + 1}. {q.label} {isRequired && <span className="required">*</span>}
         </label>
+
+        {q.description && (
+          <div style={{ 
+            fontSize: '0.82rem', 
+            color: 'var(--text-muted)', 
+            marginTop: '0px', 
+            marginBottom: '12px',
+            lineHeight: '1.4',
+            fontStyle: 'italic'
+          }}>
+            {q.description}
+          </div>
+        )}
 
         {q.imageUrl && (
           <div style={{ 
