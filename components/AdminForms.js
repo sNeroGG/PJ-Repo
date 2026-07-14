@@ -25,6 +25,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   
   // Pregunta temporal para añadir al creador
   const [tempLabel, setTempLabel] = useState('');
+  const [tempDescription, setTempDescription] = useState('');
   const [tempType, setTempType] = useState('text');
   const [tempRequired, setTempRequired] = useState(false);
   const [tempAllowFile, setTempAllowFile] = useState(false);
@@ -97,6 +98,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
             ...q,
             type: tempType,
             label: tempLabel,
+            description: tempDescription,
             required: tempRequired,
             allowFileAttachment: tempAllowFile,
             fileRequired: tempAllowFile ? tempFileRequired : false,
@@ -114,6 +116,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
         id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         type: tempType,
         label: tempLabel,
+        description: tempDescription,
         required: tempRequired,
         allowFileAttachment: tempAllowFile,
         fileRequired: tempAllowFile ? tempFileRequired : false,
@@ -124,6 +127,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     }
 
     setTempLabel('');
+    setTempDescription('');
     setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
@@ -136,6 +140,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   // Iniciar edición de una pregunta individual
   const handleStartEditQuestion = (q) => {
     setTempLabel(q.label);
+    setTempDescription(q.description || '');
     setTempType(q.type);
     setTempRequired(q.required);
     setTempAllowFile(!!q.allowFileAttachment);
@@ -148,6 +153,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   // Cancelar edición de pregunta
   const handleCancelEditQuestion = () => {
     setTempLabel('');
+    setTempDescription('');
     setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
@@ -354,6 +360,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setIsEditMode(false);
     setActiveEditFormId(null);
     setTempLabel('');
+    setTempDescription('');
     setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
@@ -425,12 +432,19 @@ export default function AdminForms({ forms, onRefreshForms }) {
                   transition: 'var(--transition)'
                 }}>
                   <div style={{ flex: 1, marginRight: '16px' }}>
-                    <span style={{ fontWeight: 600, color: 'var(--primary)', marginRight: '6px' }}>
-                      {idx + 1}. {q.label}
-                    </span>
-                    <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                      {q.type}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                        {idx + 1}. {q.label}
+                      </span>
+                      <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                        {q.type}
+                      </span>
+                    </div>
+                    {q.description && (
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '2px', fontStyle: 'italic' }}>
+                        {q.description}
+                      </div>
+                    )}
                     {q.required && <span style={{ color: 'var(--danger)', marginLeft: '6px', fontWeight: 'bold' }}>* Obligatorio</span>}
                     {q.allowFileAttachment && (
                       <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', marginLeft: '6px', backgroundColor: '#e2e8f0', color: '#4a5568' }}>
@@ -542,6 +556,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         placeholder="Ej. ¿Tienes alguna alergia alimentaria?" 
                         value={tempLabel} 
                         onChange={e => setTempLabel(e.target.value)} 
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '10px' }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>Descripción de la pregunta (Opcional)</label>
+                      <input 
+                        type="text" 
+                        className="input-text" 
+                        placeholder="Ej. Especifica detalles o instrucciones adicionales..." 
+                        value={tempDescription} 
+                        onChange={e => setTempDescription(e.target.value)} 
                       />
                     </div>
 
@@ -1116,6 +1141,18 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         value={editingQuestionId ? '' : tempLabel} 
                         disabled={!!editingQuestionId}
                         onChange={e => setTempLabel(e.target.value)} 
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '12px' }}>
+                      <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>Descripción de la pregunta (Opcional)</label>
+                      <input 
+                        type="text" 
+                        className="input-text" 
+                        placeholder={editingQuestionId ? "Guarda o cancela la edición arriba primero..." : "Ej. Especifica detalles o instrucciones adicionales..."} 
+                        value={editingQuestionId ? '' : tempDescription} 
+                        disabled={!!editingQuestionId}
+                        onChange={e => setTempDescription(e.target.value)} 
                       />
                     </div>
 

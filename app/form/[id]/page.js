@@ -241,10 +241,23 @@ export default function FillFormPage() {
 
     return (
       <div key={q.id} className="form-group" style={{ marginBottom: '24px', animation: 'fadeIn 0.2s ease-out' }}>
-        <label className="form-label">
+        <label className="form-label" style={{ marginBottom: q.description ? '4px' : '8px' }}>
           {idx + 1}. {q.label}
           {isRequired && <span className="required">*</span>}
         </label>
+
+        {q.description && (
+          <div style={{ 
+            fontSize: '0.82rem', 
+            color: 'var(--text-muted)', 
+            marginTop: '0px', 
+            marginBottom: '12px',
+            lineHeight: '1.4',
+            fontStyle: 'italic'
+          }}>
+            {q.description}
+          </div>
+        )}
 
         {q.imageUrl && (
           <div style={{ 
