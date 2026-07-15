@@ -39,6 +39,24 @@ describe('storageService fallback', () => {
     expect(retrieved.title).toBe('Formulario de Prueba');
   });
 
+  test('should persist success customization fields', async () => {
+    const newForm = {
+      id: 'success-form',
+      title: 'Formulario con confirmación',
+      description: 'Prueba',
+      isActive: true,
+      isAnonymous: false,
+      successMessage: '¡Gracias por registrarte!',
+      successFlyerUrl: '/uploads/confirmacion.jpg',
+      questions: [],
+    };
+
+    await storageService.saveForm(newForm);
+    const retrieved = await storageService.getFormById('success-form');
+    expect(retrieved.successMessage).toBe('¡Gracias por registrarte!');
+    expect(retrieved.successFlyerUrl).toBe('/uploads/confirmacion.jpg');
+  });
+
   test('should delete a form and its responses', async () => {
     const newForm = {
       id: 'delete-me',
