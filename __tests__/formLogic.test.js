@@ -379,7 +379,7 @@ describe('formLogic - kit color sizes in one question', () => {
 
     expect(getKitColorTotal(answers['q-shirts'])).toBe(2);
     expect(getKitColorSizeTotal(answers['q-shirts'], 'Crema')).toBe(1);
-    expect(isKitColorSizesValid(kitShirtsQuestion, answers['q-shirts'])).toBe(true);
+    expect(isKitColorSizesValid(kitShirtsQuestion, answers['q-shirts'], answers, questions)).toBe(true);
     expect(formatKitColorSizesAnswer(answers['q-shirts'], kitShirtsQuestion))
       .toBe('Crema: 1 (1S) | Blanco: 1 (1S)');
     expect(formatAnswerForDisplay(kitShirtsQuestion, answers['q-shirts']))
@@ -465,7 +465,7 @@ describe('formLogic - multi article kit (Kit 3)', () => {
       },
     };
 
-    expect(isKitColorSizesValid(kit3Question, answers['q-kit3'])).toBe(true);
+    expect(isKitColorSizesValid(kit3Question, answers['q-kit3'], answers, questions)).toBe(true);
     expect(formatKitColorSizesAnswer(answers['q-kit3'], kit3Question))
       .toBe('Camisas: Crema: 1 (1S), Blanco: 1 (1M) | Gorra: Negro: 1 | Sombrero: Beige: 1');
   });
@@ -588,6 +588,124 @@ describe('formLogic - multi article kit (Kit 3)', () => {
         },
       },
     }, question)).toBe('Kit 2: 1 — Camisa: Crema: 1 (1S)');
+  });
+
+  test('kit-picker rejects incomplete shirt color or size assignments', () => {
+    const question = {
+      id: 'q-picker',
+      type: 'kit-picker',
+      required: true,
+      options: ['Kit 2', 'Kit 3'],
+      kitOptionConfigs: {
+        'Kit 2': {
+          enabled: true,
+          sections: [{
+            key: 'camisa',
+            label: 'Camisa',
+            options: ['Crema', 'Blanco'],
+            sizeOptions: ['S', 'M'],
+          }],
+          sharedMaxGroups: {},
+        },
+        'Kit 3': {
+          enabled: true,
+          sections: [
+            {
+              key: 'camisa',
+              label: 'Camisa',
+              options: ['Crema', 'Blanco'],
+              sizeOptions: ['S', 'M'],
+            },
+            {
+              key: 'gorra',
+              label: 'Gorra',
+              options: ['Negro', 'Azul'],
+              sizeOptions: [],
+              sharedMaxGroup: 'gorra-sombrero',
+            },
+            {
+              key: 'sombrero',
+              label: 'Sombrero',
+              options: ['Beige', 'Natural'],
+              sizeOptions: [],
+              sharedMaxGroup: 'gorra-sombrero',
+            },
+          ],
+          sharedMaxGroups: {
+            'gorra-sombrero': { label: 'Gorra o Sombrero' },
+          },
+        },
+      },
+    };
+
+    expect(isKitPickerValid(question, {
+      'Kit 2': { qty: 1, sections: { camisa: { colors: {}, sizes: {} } } },
+    })).toBe(false);
+
+    expect(isKitPickerValid(question, {
+      'Kit 2': { qty: 1, sections: { camisa: { colors: { Crema: 1 }, sizes: {} } } },
+    })).toBe(false);
+
+    expect(isKitPickerValid(question, {
+      'Kit 3': {
+        qty: 1,
+        sections: {
+          camisa: { colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } },
+          gorra: { articleQty: 1, colors: {}, sizes: {} },
+          sombrero: { articleQty: 0, colors: {}, sizes: {} },
+        },
+      },
+    })).toBe(false);
+
+    expect(isKitPickerValid(question, {
+      'Kit 2': { qty: 1, sections: { camisa: { colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } } } },
+      'Kit 3': { qty: 1, sections: { camisa: { colors: {}, sizes: {} } } },
+    })).toBe(false);
+  });
+
+  test('kit-color-sizes rejects incomplete camisa, gorra or sombrero assignments', () => {
+    const questions = [kitsQuestion, kit3Question];
+    const baseAnswers = { 'q-kits': '1' };
+
+    expect(isKitColorSizesValid(
+      kit3Question,
+      {
+        camisas: { colors: {}, sizes: {} },
+        gorra: { articleQty: 0, colors: {}, sizes: {} },
+        sombrero: { articleQty: 0, colors: {}, sizes: {} },
+      },
+      baseAnswers,
+      questions,
+    )).toBe(false);
+
+    expect(isKitColorSizesValid(
+      kit3Question,
+      {
+        camisas: { colors: { Crema: 1 }, sizes: {} },
+        gorra: { articleQty: 0, colors: {}, sizes: {} },
+        sombrero: { articleQty: 0, colors: {}, sizes: {} },
+      },
+      baseAnswers,
+      questions,
+    )).toBe(false);
+
+    expect(isKitColorSizesValid(
+      kit3Question,
+      {
+        camisas: { colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } },
+        gorra: { articleQty: 1, colors: {}, sizes: {} },
+        sombrero: { articleQty: 0, colors: {}, sizes: {} },
+      },
+      baseAnswers,
+      questions,
+    )).toBe(false);
+
+    expect(isKitColorSizesValid(
+      kitShirtsQuestion,
+      { colors: { Crema: 1 }, sizes: {} },
+      baseAnswers,
+      questions,
+    )).toBe(false);
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {

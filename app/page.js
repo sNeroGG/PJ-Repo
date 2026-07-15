@@ -246,7 +246,7 @@ export default function HomePage() {
       } else if (q.type === 'kit-picker') {
         if (!isKitPickerValid(q, ans)) return false;
       } else if (q.type === 'kit-color-sizes') {
-        if (!isKitColorSizesValid(q, ans)) return false;
+        if (!isKitColorSizesValid(q, ans, answers, featuredForm.questions)) return false;
       } else {
         if (ans === undefined || ans === null || ans.toString().trim() === '') return false;
       }
@@ -269,7 +269,7 @@ export default function HomePage() {
     });
 
     if (!isValid) {
-      alert('Por favor, completa todas las preguntas y archivos obligatorios.');
+      alert('Por favor, completa todas las preguntas obligatorias. Revisa colores, tallas y artículos de cada kit.');
       return;
     }
 
