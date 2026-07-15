@@ -27,35 +27,54 @@ function getParticipantLabel(response, form, fallback) {
   return full || fallback;
 }
 
-function ResponseListItem({ response, form, index, total, isActive, onSelect }) {
+function ResponseListItem({
+  response,
+  form,
+  index,
+  total,
+  isActive,
+  onSelect,
+  onDelete,
+}) {
   const title = getParticipantLabel(response, form, `Respuesta #${total - index}`);
 
   return (
-    <button
-      type="button"
-      className={`admin-response-item${isActive ? ' admin-response-item--active' : ''}`}
-      onClick={() => onSelect(response.id)}
-    >
-      <div className="admin-response-item__main">
-        <strong>{title}</strong>
-        <span className="admin-response-item__meta">
-          <Calendar size={12} />
-          {new Date(response.submittedAt).toLocaleDateString('es-ES', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })}
-          {' · '}
-          {new Date(response.submittedAt).toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      </div>
-      {form?.isAnonymous && (
-        <span className="admin-response-item__badge">Anónimo</span>
-      )}
-    </button>
+    <div className={`admin-response-item-wrap${isActive ? ' admin-response-item-wrap--active' : ''}`}>
+      <button
+        type="button"
+        className="admin-response-item"
+        onClick={() => onSelect(response.id)}
+      >
+        <div className="admin-response-item__main">
+          <strong>{title}</strong>
+          <span className="admin-response-item__meta">
+            <Calendar size={12} />
+            {new Date(response.submittedAt).toLocaleDateString('es-ES', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            })}
+            {' · '}
+            {new Date(response.submittedAt).toLocaleTimeString('es-ES', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+        {form?.isAnonymous && (
+          <span className="admin-response-item__badge">Anónimo</span>
+        )}
+      </button>
+      <button
+        type="button"
+        className="admin-response-item__delete"
+        onClick={() => onDelete(response)}
+        aria-label={`Eliminar respuesta de ${title}`}
+        title="Eliminar respuesta"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
   );
 }
 
@@ -397,12 +416,16 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
     }
   };
 
-  const handleDeleteResponse = (id) => {
-    if (confirm('¿Estás seguro de que deseas eliminar esta respuesta permanentemente?')) {
-      storageService.deleteResponse(id);
-      if (activeResponseId === id) setActiveResponseId(null);
-      onRefreshResponses();
-    }
+  const handleDeleteResponse = async (response) => {
+    const label = getParticipantLabel(response, selectedForm, 'esta respuesta');
+    const confirmed = window.confirm(
+      `¿Eliminar permanentemente la respuesta de ${label}?\n\nEsta acción no se puede deshacer.`,
+    );
+    if (!confirmed) return;
+
+    await storageService.deleteResponse(response.id);
+    if (activeResponseId === response.id) setActiveResponseId(null);
+    onRefreshResponses();
   };
 
   const handlePrint = (response) => {
@@ -599,6 +622,7 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                       total={filteredResponses.length}
                       isActive={activeResponseId === resp.id}
                       onSelect={setActiveResponseId}
+                      onDelete={handleDeleteResponse}
                     />
                   ))}
                 </div>
@@ -625,11 +649,11 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDeleteResponse(activeResponse.id)}
+                        onClick={() => handleDeleteResponse(activeResponse)}
                         className="btn btn-danger btn-sm"
                         aria-label="Eliminar respuesta"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={14} /> Eliminar
                       </button>
                     </div>
                   </div>

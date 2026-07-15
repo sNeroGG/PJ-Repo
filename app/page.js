@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import EventCalendar from '../components/EventCalendar';
 import { storageService } from '../lib/storage';
-import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, isKitPickerValid } from '../lib/formLogic';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, canSetQuantityOption, applyKitColorSizesChange, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, getQuestionValidationResult } from '../lib/formLogic';
 import FormView, { FormSuccessScreen, FormGateScreen, FormLightbox } from '../components/FormView';
 import { shouldShowMaintenanceBlock } from '../lib/portalRules';
 import MaintenanceBlock from '../components/MaintenanceBlock';
@@ -26,6 +26,16 @@ export default function HomePage() {
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadingQuestionId, setUploadingQuestionId] = useState(null);
   const [fileErrors, setFileErrors] = useState({});
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const clearValidationError = (questionId) => {
+    setValidationErrors((prev) => {
+      if (!prev[questionId]) return prev;
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+  };
 
   useEffect(() => {
     // Cargar datos iniciales asíncronamente
@@ -83,6 +93,7 @@ export default function HomePage() {
 
   const handleInputChange = (questionId, value) => {
     if (!featuredForm) return;
+    clearValidationError(questionId);
     const cleared = clearHiddenQuestionAnswers(featuredForm.questions, {
       ...answers,
       [questionId]: value
@@ -93,6 +104,7 @@ export default function HomePage() {
 
   const handleKitColorSizesChange = (questionId, sectionKey, kind, color, value, size = null) => {
     if (!featuredForm) return;
+    clearValidationError(questionId);
     const question = featuredForm.questions.find((q) => q.id === questionId);
     if (!question) return;
 
@@ -111,6 +123,7 @@ export default function HomePage() {
 
   const handleKitPickerChange = (change) => {
     if (!featuredForm) return;
+    clearValidationError(change.questionId);
     const question = featuredForm.questions.find((q) => q.id === change.questionId);
     if (!question) return;
 
@@ -125,6 +138,7 @@ export default function HomePage() {
 
   const handleQuantityOptionChange = (questionId, option, newQty) => {
     if (!featuredForm) return;
+    clearValidationError(questionId);
     const question = featuredForm.questions.find((q) => q.id === questionId);
     if (!question || !canSetQuantityOption(question, option, newQty, answers, featuredForm.questions)) {
       return;
@@ -141,6 +155,7 @@ export default function HomePage() {
 
   const handleCheckboxChange = (questionId, option, checked) => {
     if (!featuredForm) return;
+    clearValidationError(questionId);
     const question = featuredForm.questions.find((q) => q.id === questionId);
     const currentValues = [...(answers[questionId] || [])];
 
@@ -187,6 +202,7 @@ export default function HomePage() {
     }
 
     setUploadingQuestionId(questionId);
+    clearValidationError(questionId);
     setFileErrors(prev => ({
       ...prev,
       [questionId]: ''
@@ -224,6 +240,7 @@ export default function HomePage() {
   };
 
   const removeQuestionFile = (questionId) => {
+    clearValidationError(questionId);
     setAnswers(prev => {
       const updated = { ...prev };
       delete updated[questionId + '_file'];
@@ -236,47 +253,29 @@ export default function HomePage() {
     }));
   };
 
-  const validateQuestion = (q) => {
-    const ans = answers[q.id];
-
-    if (q.type === 'kit-picker' && !isKitPickerValid(q, ans)) return false;
-    if (q.type === 'kit-color-sizes' && !isKitColorSizesValid(q, ans, answers, featuredForm.questions)) {
-      return false;
-    }
-
-    if (q.required) {
-      if (q.type === 'checkbox-group') {
-        if (!ans || ans.length === 0) return false;
-      } else if (q.type === 'quantity-group') {
-        if (getQuantityGroupTotal(ans) === 0) return false;
-      } else if (['kit-picker', 'kit-color-sizes'].includes(q.type)) {
-        // Ya validado arriba cuando hay selección activa o es obligatorio.
-      } else {
-        if (ans === undefined || ans === null || ans.toString().trim() === '') return false;
-      }
-    }
-    if (q.allowFileAttachment && q.fileRequired) {
-      const fileUrl = answers[q.id + '_file'];
-      if (!fileUrl || fileUrl.trim() === '') return false;
-    }
-    return true;
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!featuredForm) return;
 
-    let isValid = true;
-    visibleQuestions.forEach(q => {
-      if (!validateQuestion(q)) {
-        isValid = false;
-      }
+    const errors = {};
+    visibleQuestions.forEach((q) => {
+      const error = getQuestionValidationResult(q, answers, featuredForm.questions);
+      if (error) errors[q.id] = error;
     });
 
-    if (!isValid) {
-      alert('Por favor, completa todas las preguntas obligatorias. Revisa colores, tallas y artículos de cada kit.');
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      const firstInvalidId = visibleQuestions.find((q) => errors[q.id])?.id;
+      if (firstInvalidId) {
+        document.getElementById(`question-${firstInvalidId}`)?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }
       return;
     }
 
+    setValidationErrors({});
     setIsSubmitting(true);
     await storageService.saveResponse({
       formId: featuredForm.id,
@@ -340,13 +339,14 @@ export default function HomePage() {
                 currentStep={currentStep}
                 onStepChange={setCurrentStep}
                 onSubmit={handleSubmit}
-                validateQuestion={validateQuestion}
                 onBack={() => setShowGateScreen(true)}
                 backLabel="Atrás"
                 previousLabel="Anterior"
                 questionHandlers={questionHandlers}
                 uploadingQuestionId={uploadingQuestionId}
                 fileErrors={fileErrors}
+                validationErrors={validationErrors}
+                onValidationErrorsChange={setValidationErrors}
                 lightboxImage={lightboxImage}
                 onLightboxChange={setLightboxImage}
               />

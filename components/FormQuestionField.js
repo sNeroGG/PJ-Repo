@@ -1,6 +1,6 @@
 "use client";
 
-import { UploadCloud, FileText, Trash2 } from 'lucide-react';
+import { UploadCloud, FileText, Trash2, AlertCircle } from 'lucide-react';
 import NumberStepperControl from './NumberStepperControl';
 import QuantityGroupControl from './QuantityGroupControl';
 import KitPickerControl from './KitPickerControl';
@@ -27,14 +27,19 @@ export default function FormQuestionField({
   onFileUpload,
   onFileRemove,
   onImageClick,
+  validationError = null,
 }) {
   const isRequired = q.required;
   const value = answers[q.id];
   const isWizard = layoutMode === 'one-by-one';
   const htmlRequired = isRequired && !isWizard;
+  const hasError = !!validationError;
 
   return (
-    <article className={`form-question${variant === 'wizard' ? ' form-question--wizard' : ''}`}>
+    <article
+      id={`question-${q.id}`}
+      className={`form-question${variant === 'wizard' ? ' form-question--wizard' : ''}${hasError ? ' form-question--invalid' : ''}`}
+    >
       <header className="form-question__header">
         <span className="form-question__number">{index + 1}</span>
         <div className="form-question__titles">
@@ -47,6 +52,13 @@ export default function FormQuestionField({
           )}
         </div>
       </header>
+
+      {hasError && (
+        <div className="form-question__error" role="alert">
+          <AlertCircle size={16} />
+          <span>{validationError}</span>
+        </div>
+      )}
 
       {q.imageUrl && (
         <button

@@ -37,6 +37,7 @@ import {
   canSetKitSectionArticleQty,
   getKitSectionArticleQty,
   getKitSectionFullyAssignedTotal,
+  getQuestionValidationResult,
 } from '../lib/formLogic';
 
 const parentQuestion = {
@@ -727,6 +728,18 @@ describe('formLogic - multi article kit (Kit 3)', () => {
       colors: { Crema: 1 },
       sizes: { Crema: { S: 1 } },
     })).toBe(1);
+  });
+
+  test('getQuestionValidationResult returns messages for invalid answers', () => {
+    const requiredText = {
+      id: 'q-name',
+      type: 'text',
+      label: 'Nombre',
+      required: true,
+    };
+
+    expect(getQuestionValidationResult(requiredText, {}, [])).toBe('Esta pregunta es obligatoria.');
+    expect(getQuestionValidationResult(requiredText, { 'q-name': 'Ana' }, [])).toBe(null);
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {

@@ -9,10 +9,12 @@ import {
   ClipboardList,
   ArrowLeft,
   X,
+  AlertCircle,
 } from 'lucide-react';
 import FormQuestionField from './FormQuestionField';
 import FormFlyerImage from './FormFlyerImage';
 import { branding } from '../lib/branding';
+import { getQuestionValidationResult } from '../lib/formLogic';
 
 export function FormLightbox({ imageUrl, onClose, title = 'Flyer' }) {
   const handleKeyDown = useCallback((e) => {
@@ -243,7 +245,6 @@ export default function FormView({
   currentStep = 0,
   onStepChange,
   onSubmit,
-  validateQuestion,
   onBack,
   backLabel,
   previousLabel,
@@ -254,18 +255,28 @@ export default function FormView({
   onLightboxChange,
   showHeader = true,
   showFlyerInHeader = true,
+  validationErrors = {},
+  onValidationErrorsChange,
 }) {
   const isWizard = layoutMode === 'one-by-one';
   const formForHeader = showFlyerInHeader ? form : { ...form, flyerUrl: null };
+  const errorCount = Object.keys(validationErrors).length;
 
   const handleNext = () => {
     const current = visibleQuestions[currentStep];
     if (!current) return;
-    if (validateQuestion(current)) {
-      onStepChange?.(currentStep + 1);
-    } else {
-      alert('Por favor, responde la pregunta y sube el archivo si es obligatorio para continuar.');
+
+    const error = getQuestionValidationResult(current, answers, form.questions || []);
+    if (error) {
+      onValidationErrorsChange?.({ ...validationErrors, [current.id]: error });
+      document.getElementById(`question-${current.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
     }
+
+    const nextErrors = { ...validationErrors };
+    delete nextErrors[current.id];
+    onValidationErrorsChange?.(nextErrors);
+    onStepChange?.(currentStep + 1);
   };
 
   const handlePrevious = () => {
@@ -292,6 +303,18 @@ export default function FormView({
             <FormProgress currentStep={currentStep} total={visibleQuestions.length} />
           )}
 
+          {errorCount > 0 && (
+            <div className="form-validation-summary" role="alert">
+              <AlertCircle size={18} />
+              <span>
+                {errorCount === 1
+                  ? 'Hay 1 pregunta pendiente o incompleta.'
+                  : `Hay ${errorCount} preguntas pendientes o incompletas.`}
+                {' '}Revisa las marcadas en rojo.
+              </span>
+            </div>
+          )}
+
           <div className={`form-questions${isWizard ? ' form-questions--wizard' : ''}`}>
             {isWizard ? (
               visibleQuestions[currentStep] && (
@@ -305,6 +328,7 @@ export default function FormView({
                   variant="wizard"
                   uploadingQuestionId={uploadingQuestionId}
                   fileErrors={fileErrors}
+                  validationError={validationErrors[visibleQuestions[currentStep].id]}
                   onImageClick={onLightboxChange}
                   {...questionHandlers}
                 />
@@ -321,6 +345,7 @@ export default function FormView({
                   variant="list"
                   uploadingQuestionId={uploadingQuestionId}
                   fileErrors={fileErrors}
+                  validationError={validationErrors[q.id]}
                   onImageClick={onLightboxChange}
                   {...questionHandlers}
                 />
