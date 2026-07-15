@@ -37,6 +37,38 @@ export default function KitPickerQuestionPreview({ question }) {
         <label className="form-label" style={{ fontWeight: 600, marginBottom: '8px', display: 'block' }}>
           {previewQuestion.label || 'Pregunta sin título'}
         </label>
+
+        {previewQuestion.description && (
+          <p style={{
+            fontSize: '0.82rem',
+            color: 'var(--text-muted)',
+            marginBottom: '12px',
+            lineHeight: 1.4,
+            fontStyle: 'italic',
+          }}>
+            {previewQuestion.description}
+          </p>
+        )}
+
+        {previewQuestion.imageUrl && (
+          <div style={{
+            marginBottom: '12px',
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+            maxHeight: '180px',
+            display: 'flex',
+            justifyContent: 'center',
+            backgroundColor: '#f7fafc',
+            border: '1px solid #edf2f7',
+          }}>
+            <img
+              src={previewQuestion.imageUrl}
+              alt="Ilustración de la pregunta"
+              style={{ maxHeight: '180px', width: 'auto', maxWidth: '100%', objectFit: 'contain' }}
+            />
+          </div>
+        )}
+
         <KitPickerControl
           question={previewQuestion}
           answers={answers}

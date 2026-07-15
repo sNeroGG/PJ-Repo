@@ -718,3 +718,108 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1;
   }
 }
+
+/* Stepper −/+ */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stepper--default {
+  gap: 8px;
+}
+
+.stepper--disabled {
+  opacity: 0.5;
+}
+
+.stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: #fff;
+  color: var(--primary);
+  font-weight: 700;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stepper-btn--default {
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+}
+
+.stepper-btn--default.stepper-btn--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 1rem;
+}
+
+.stepper-btn--minimal {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
+  color: #64748b;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.stepper-btn--minimal.stepper-btn--xs {
+  width: 22px;
+  height: 22px;
+  font-size: 0.8rem;
+}
+
+.stepper-btn--default:hover:not(:disabled) {
+  background-color: #f7fafc;
+  border-color: #cbd5e1;
+}
+
+.stepper-btn--minimal:hover:not(:disabled) {
+  background-color: #e2e8f0;
+  border-color: #cbd5e1;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.stepper-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.stepper-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.stepper-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.stepper-value {
+  text-align: center;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 28px;
+}
+
+.stepper-value--minimal {
+  min-width: 18px;
+  font-weight: 500;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+.stepper-value--minimal.stepper-value--xs {
+  font-size: 0.82rem;
+}
+
+.stepper-value--sm {
+  font-size: 0.95rem;
+}
