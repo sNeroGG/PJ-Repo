@@ -2176,6 +2176,10 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--accent-hover);
 }
 
+.kit-section-meta--pending {
+  color: #b7791f;
+}
+
 .kit-section-body {
   display: flex;
   flex-direction: column;

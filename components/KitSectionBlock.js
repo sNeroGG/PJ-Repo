@@ -5,6 +5,7 @@ import {
   getKitColorTotal,
   getKitColorSizeTotal,
   getKitSectionArticleQty,
+  getKitSectionFullyAssignedTotal,
   sectionHasSizeOptions,
   getQuantityGroupTotal,
 } from '../lib/formLogic';
@@ -32,7 +33,10 @@ export default function KitSectionBlock({
   onColorChange,
   onSizeChange,
 }) {
-  const currentTotal = getKitColorTotal(sectionAnswer);
+  const colorTotal = getKitColorTotal(sectionAnswer);
+  const assignedTotal = sectionHasSizeOptions(section)
+    ? getKitSectionFullyAssignedTotal(section, sectionAnswer)
+    : colorTotal;
   const articleQty = getKitSectionArticleQty(sectionAnswer);
   const hasSizes = sectionHasSizeOptions(section);
   const isSharedArticle = !!section.sharedMaxGroup;
@@ -52,13 +56,13 @@ export default function KitSectionBlock({
               : `Colores de ${articleLabel}`}
           </div>
           {showSectionTotal && maxTotal !== null && (
-            <div className={`kit-section-meta${currentTotal >= maxTotal ? ' kit-section-meta--limit' : ''}`}>
-              Asignados {currentTotal} de {maxTotal}
+            <div className={`kit-section-meta${assignedTotal >= maxTotal ? ' kit-section-meta--limit' : ''}${assignedTotal > 0 && assignedTotal < maxTotal ? ' kit-section-meta--pending' : ''}`}>
+              Asignados {assignedTotal} de {maxTotal}
             </div>
           )}
           {isSharedArticle && articleQty > 0 && (
-            <div className={`kit-section-meta${currentTotal >= articleQty ? ' kit-section-meta--done' : ''}`}>
-              Colores asignados {currentTotal} de {articleQty}
+            <div className={`kit-section-meta${colorTotal >= articleQty ? ' kit-section-meta--done' : ''}`}>
+              Colores asignados {colorTotal} de {articleQty}
             </div>
           )}
         </div>

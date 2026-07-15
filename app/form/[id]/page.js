@@ -280,16 +280,20 @@ export default function FillFormPage() {
   };
 
   const validateQuestion = (q) => {
+    const ans = answers[q.id];
+
+    if (q.type === 'kit-picker' && !isKitPickerValid(q, ans)) return false;
+    if (q.type === 'kit-color-sizes' && !isKitColorSizesValid(q, ans, answers, form.questions)) {
+      return false;
+    }
+
     if (q.required) {
-      const ans = answers[q.id];
       if (q.type === 'checkbox-group') {
         if (!ans || ans.length === 0) return false;
       } else if (q.type === 'quantity-group') {
         if (getQuantityGroupTotal(ans) === 0) return false;
-      } else if (q.type === 'kit-picker') {
-        if (!isKitPickerValid(q, ans)) return false;
-      } else if (q.type === 'kit-color-sizes') {
-        if (!isKitColorSizesValid(q, ans, answers, form.questions)) return false;
+      } else if (['kit-picker', 'kit-color-sizes'].includes(q.type)) {
+        // Ya validado arriba cuando hay selección activa o es obligatorio.
       } else {
         if (ans === undefined || ans === null || ans.toString().trim() === '') return false;
       }

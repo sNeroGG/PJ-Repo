@@ -36,6 +36,7 @@ import {
   canSetKitColorQty,
   canSetKitSectionArticleQty,
   getKitSectionArticleQty,
+  getKitSectionFullyAssignedTotal,
 } from '../lib/formLogic';
 
 const parentQuestion = {
@@ -706,6 +707,26 @@ describe('formLogic - multi article kit (Kit 3)', () => {
       baseAnswers,
       questions,
     )).toBe(false);
+  });
+
+  test('camisa parent counter ignores color-only assignments until sizes are complete', () => {
+    const camisaSection = {
+      key: 'camisas',
+      label: 'Camisas',
+      options: ['Crema', 'Blanco'],
+      sizeOptions: ['S', 'M', 'L', 'XL'],
+    };
+    const partialAnswer = {
+      colors: { Crema: 1 },
+      sizes: {},
+    };
+
+    expect(getKitColorTotal(partialAnswer)).toBe(1);
+    expect(getKitSectionFullyAssignedTotal(camisaSection, partialAnswer)).toBe(0);
+    expect(getKitSectionFullyAssignedTotal(camisaSection, {
+      colors: { Crema: 1 },
+      sizes: { Crema: { S: 1 } },
+    })).toBe(1);
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {
