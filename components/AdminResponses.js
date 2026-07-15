@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileText, Download, Trash2, Calendar, User, Eye, BarChart3, AlertCircle } from 'lucide-react';
 import { storageService } from '../lib/storage';
 import { formatAnswerForDisplay } from '../lib/formLogic';
+import { branding } from '../lib/branding';
 
 export default function AdminResponses({ forms, responses, onRefreshResponses }) {
   const [selectedFormId, setSelectedFormId] = useState(forms[0]?.id || 'datos-personales');
@@ -252,7 +253,7 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
       {printResponse && selectedForm && (
         <div style={{ display: 'none' }} className="print-only">
           <div className="pdf-report-header">
-            <h1>Ficha de Registro Pastoral Juvenil</h1>
+            <h1>{branding.pdfHeader}</h1>
             <h3>Formulario: {selectedForm.title}</h3>
             <div className="pdf-metadata">
               <span><strong>ID de Registro:</strong> {printResponse.id}</span>

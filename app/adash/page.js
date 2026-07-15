@@ -8,6 +8,7 @@ import AdminForms from '../../components/AdminForms';
 import AdminResponses from '../../components/AdminResponses';
 import AdminCalendar from '../../components/AdminCalendar';
 import { storageService } from '../../lib/storage';
+import { branding } from '../../lib/branding';
 import { Church, Lock, ShieldAlert, ArrowLeft } from 'lucide-react';
 
 export default function AdminPage() {
@@ -108,10 +109,10 @@ export default function AdminPage() {
           </div>
 
           <h2 style={{ fontSize: '1.6rem', color: 'var(--primary)', marginBottom: '8px' }}>
-            PJ - Administrador
+            {branding.adminLoginTitle}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '24px' }}>
-            Ingresa la contraseña maestra para acceder al panel de control de la Pastoral Juvenil.
+            {branding.adminLoginSubtitle}
           </p>
 
           <form onSubmit={handleLogin}>
@@ -157,10 +158,6 @@ export default function AdminPage() {
               <ArrowLeft size={16} /> Volver a la Web
             </button>
           </form>
-          
-          <div style={{ marginTop: '24px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Tip: La contraseña por defecto es <code style={{ backgroundColor: '#edf2f7', padding: '2px 4px', borderRadius: '4px', fontWeight: 'bold' }}>pj2026</code>
-          </div>
         </div>
       </div>
     );

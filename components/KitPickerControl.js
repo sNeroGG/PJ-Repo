@@ -1,6 +1,7 @@
 "use client";
 
 import NumberStepperControl from './NumberStepperControl';
+import KitSectionBlock, { KitGroupBanner } from './KitSectionBlock';
 import {
   kitPickerKitHasConfig,
   normalizeKitPickerAnswer,
@@ -10,159 +11,16 @@ import {
   getKitPickerSharedGroupTotal,
   getKitPickerSharedGroupMax,
   getKitPickerSharedGroupLabel,
+  getKitPickerSharedGroupChooseHint,
   getKitPickerSectionMax,
-  getKitColorTotal,
-  getQuantityGroupTotal,
   canSetKitPickerSectionColorQty,
+  canSetKitPickerSectionArticleQty,
   canSetKitPickerSectionSizeQty,
   canSetQuantityOption,
   getMaxTotalForQuestion,
-  sectionHasSizeOptions,
+  getQuantityGroupTotal,
+  getKitSectionArticleQty,
 } from '../lib/formLogic';
-
-function KitPickerSectionBlock({
-  section,
-  kitKey,
-  entry,
-  question,
-  answer,
-  onKitPickerChange,
-}) {
-  const sectionAnswer = getKitPickerSectionAnswer(entry, section.key);
-  const maxTotal = section.sharedMaxGroup ? null : getKitPickerSectionMax(entry, section);
-  const currentTotal = getKitColorTotal(sectionAnswer);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        gap: '8px',
-      }}>
-        <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.8rem' }}>
-          {section.label}
-        </span>
-        {!section.sharedMaxGroup && maxTotal !== null && (
-          <span style={{
-            fontSize: '0.68rem',
-            color: currentTotal >= maxTotal ? 'var(--accent-hover)' : '#94a3b8',
-            fontWeight: 500,
-          }}>
-            {currentTotal}/{maxTotal}
-          </span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {section.options.map((colorName, colorIndex) => {
-          const colorQty = sectionAnswer.colors[colorName] || 0;
-          const canIncreaseColor = canSetKitPickerSectionColorQty(
-            question, kitKey, section.key, colorName, colorQty + 1, answer
-          );
-          const assignedSizes = getQuantityGroupTotal(sectionAnswer.sizes[colorName] || {});
-          const hasSizes = sectionHasSizeOptions(section);
-          const isLastColor = colorIndex === section.options.length - 1;
-
-          return (
-            <div
-              key={colorName}
-              style={{
-                padding: '8px 0',
-                borderBottom: isLastColor && colorQty === 0 ? 'none' : '1px solid #f1f5f9',
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '10px',
-              }}>
-                <span style={{ fontWeight: 500, color: '#475569', fontSize: '0.84rem' }}>
-                  {colorName}
-                </span>
-                <NumberStepperControl
-                  value={colorQty}
-                  size="sm"
-                  variant="minimal"
-                  min={0}
-                  onChange={(newQty) => onKitPickerChange({
-                    questionId: question.id,
-                    kitKey,
-                    kind: 'section-color',
-                    sectionKey: section.key,
-                    color: colorName,
-                    value: newQty,
-                  })}
-                  max={canIncreaseColor ? null : colorQty}
-                />
-              </div>
-
-              {colorQty > 0 && hasSizes && (
-                <div style={{
-                  marginTop: '8px',
-                  paddingLeft: '12px',
-                  borderLeft: '2px solid #e2e8f0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2px',
-                }}>
-                  <div style={{
-                    fontSize: '0.68rem',
-                    color: assignedSizes >= colorQty ? 'var(--accent-hover)' : '#94a3b8',
-                    marginBottom: '4px',
-                    fontWeight: 500,
-                  }}>
-                    Tallas {assignedSizes}/{colorQty}
-                  </div>
-                  {section.sizeOptions.map((sizeName) => {
-                    const sizeQty = sectionAnswer.sizes[colorName]?.[sizeName] || 0;
-                    const canIncreaseSize = canSetKitPickerSectionSizeQty(
-                      question, kitKey, section.key, colorName, sizeName, sizeQty + 1, answer
-                    );
-
-                    return (
-                      <div
-                        key={sizeName}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '8px',
-                          padding: '5px 0',
-                        }}
-                      >
-                        <span style={{ fontWeight: 500, fontSize: '0.8rem', color: '#64748b' }}>
-                          {sizeName}
-                        </span>
-                        <NumberStepperControl
-                          value={sizeQty}
-                          size="xs"
-                          variant="minimal"
-                          min={0}
-                          onChange={(newQty) => onKitPickerChange({
-                            questionId: question.id,
-                            kitKey,
-                            kind: 'section-size',
-                            sectionKey: section.key,
-                            color: colorName,
-                            size: sizeName,
-                            value: newQty,
-                          })}
-                          max={canIncreaseSize ? null : sizeQty}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function InlineKitConfig({
   question,
@@ -175,14 +33,7 @@ function InlineKitConfig({
   const renderedGroups = new Set();
 
   return (
-    <div style={{
-      marginTop: '12px',
-      paddingTop: '12px',
-      borderTop: '1px solid #eef2f6',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '14px',
-    }}>
+    <div className="kit-inline-config">
       {sections.map((section) => {
         const groupKey = section.sharedMaxGroup;
         const showGroupHeader = groupKey && !renderedGroups.has(groupKey);
@@ -190,29 +41,59 @@ function InlineKitConfig({
 
         const groupTotal = groupKey ? getKitPickerSharedGroupTotal(question, kitKey, entry, groupKey) : 0;
         const groupMax = groupKey ? getKitPickerSharedGroupMax(entry) : null;
+        const sectionAnswer = getKitPickerSectionAnswer(entry, section.key);
+        const articleQty = getKitSectionArticleQty(sectionAnswer);
 
         return (
           <div key={section.key}>
             {showGroupHeader && groupMax !== null && (
-              <div style={{
-                marginBottom: '10px',
-                padding: '6px 10px',
-                borderRadius: '6px',
-                backgroundColor: '#fffbeb',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                color: groupTotal >= groupMax ? 'var(--danger)' : '#b7791f',
-              }}>
-                {getKitPickerSharedGroupLabel(question, kitKey, groupKey)}: {groupTotal}/{groupMax}
-              </div>
+              <KitGroupBanner
+                label={getKitPickerSharedGroupLabel(question, kitKey, groupKey)}
+                total={groupTotal}
+                max={groupMax}
+                hint={getKitPickerSharedGroupChooseHint(question, kitKey, groupKey)}
+                isComplete={groupTotal >= groupMax && groupMax > 0}
+              />
             )}
-            <KitPickerSectionBlock
+            <KitSectionBlock
               section={section}
-              kitKey={kitKey}
-              entry={entry}
-              question={question}
-              answer={answer}
-              onKitPickerChange={onKitPickerChange}
+              sectionAnswer={sectionAnswer}
+              variant="inline"
+              showSectionTotal={!section.sharedMaxGroup}
+              maxTotal={getKitPickerSectionMax(entry, section)}
+              canIncreaseArticle={canSetKitPickerSectionArticleQty(
+                question, kitKey, section.key, articleQty + 1, answer
+              )}
+              canIncreaseColor={(color, nextQty) => canSetKitPickerSectionColorQty(
+                question, kitKey, section.key, color, nextQty, answer
+              )}
+              canIncreaseSize={(color, size, nextQty) => canSetKitPickerSectionSizeQty(
+                question, kitKey, section.key, color, size, nextQty, answer
+              )}
+              onArticleQtyChange={(newQty) => onKitPickerChange({
+                questionId: question.id,
+                kitKey,
+                kind: 'section-article-qty',
+                sectionKey: section.key,
+                value: newQty,
+              })}
+              onColorChange={(color, newQty) => onKitPickerChange({
+                questionId: question.id,
+                kitKey,
+                kind: 'section-color',
+                sectionKey: section.key,
+                color,
+                value: newQty,
+              })}
+              onSizeChange={(color, size, newQty) => onKitPickerChange({
+                questionId: question.id,
+                kitKey,
+                kind: 'section-size',
+                sectionKey: section.key,
+                color,
+                size,
+                value: newQty,
+              })}
             />
           </div>
         );
@@ -235,30 +116,20 @@ export default function KitPickerControl({
   const hasAnyConfig = (question.options || []).some((kitKey) => kitPickerKitHasConfig(question, kitKey));
 
   return (
-    <div>
+    <div className="kit-control">
       {!previewMode && hasAnyConfig && (
-        <p style={{
-          fontSize: '0.8rem',
-          color: 'var(--text-muted)',
-          marginBottom: '10px',
-          lineHeight: 1.4,
-        }}>
+        <p className="kit-control-hint">
           Indica la cantidad de cada kit. Si eliges alguno, configura colores y tallas debajo.
         </p>
       )}
 
       {maxTotal !== null && (
-        <div style={{
-          fontSize: '0.78rem',
-          color: currentTotal >= maxTotal ? 'var(--danger)' : 'var(--text-muted)',
-          marginBottom: '10px',
-          fontWeight: 600,
-        }}>
+        <div className={`kit-control-total${currentTotal >= maxTotal ? ' kit-control-total--limit' : ''}`}>
           Total {currentTotal}/{maxTotal}
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="kit-picker-list">
         {(question.options || []).map((kitKey) => {
           const entry = getKitPickerKitEntry(normalized, question, kitKey);
           const qty = entry.qty || 0;
@@ -267,29 +138,9 @@ export default function KitPickerControl({
           const isActive = qty > 0;
 
           return (
-            <div
-              key={kitKey}
-              style={{
-                padding: '10px 12px',
-                borderRadius: '10px',
-                border: `1px solid ${isActive ? '#dbeafe' : '#eef2f6'}`,
-                backgroundColor: isActive ? '#fafbff' : '#fff',
-                transition: 'border-color 0.15s ease, background-color 0.15s ease',
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-              }}>
-                <span style={{
-                  fontWeight: 600,
-                  color: '#334155',
-                  fontSize: '0.88rem',
-                }}>
-                  {kitKey}
-                </span>
+            <div key={kitKey} className={`kit-picker-item${isActive ? ' kit-picker-item--active' : ''}`}>
+              <div className="kit-picker-item__header">
+                <span className="kit-picker-item__label">{kitKey}</span>
                 <NumberStepperControl
                   value={qty}
                   size="sm"

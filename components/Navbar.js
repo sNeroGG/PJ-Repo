@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Church, Calendar, LogIn, ClipboardList } from 'lucide-react';
+import { Church, Calendar, ClipboardList } from 'lucide-react';
+import { branding } from '../lib/branding';
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -33,7 +34,7 @@ export default function Navbar() {
           letterSpacing: '0.5px'
         }}>
           <Church size={28} color="var(--accent)" />
-          <span>Pastoral <span style={{ color: 'var(--accent)' }}>Juvenil</span></span>
+          <span>{branding.name}</span>
         </Link>
 
         {/* Navigation Links */}

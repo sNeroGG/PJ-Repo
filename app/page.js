@@ -12,6 +12,7 @@ import KitPickerControl from '../components/KitPickerControl';
 import KitColorSizesControl from '../components/KitColorSizesControl';
 import { shouldShowMaintenanceBlock } from '../lib/portalRules';
 import MaintenanceBlock from '../components/MaintenanceBlock';
+import { branding } from '../lib/branding';
 import { ClipboardCopy, Heart, Sparkles, BookOpen, Star, CheckCircle2, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
@@ -684,7 +685,7 @@ export default function HomePage() {
               ¡Respuestas Guardadas!
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: 1.6, marginBottom: 0 }}>
-              Hemos guardado tu respuesta. Muchas gracias por tu participación en la Pastoral Juvenil.
+              Hemos guardado tu respuesta. Gracias por participar en {branding.name}.
             </p>
           </div>
         ) : showGateScreen ? (
@@ -1001,11 +1002,11 @@ export default function HomePage() {
             backdropFilter: 'blur(4px)'
           }}>
             <Sparkles size={14} />
-            <span>BIENVENIDO A NUESTRO PORTAL JUVENIL</span>
+            <span>{branding.portalBadge.toUpperCase()}</span>
           </div>
 
           <h1 style={{ color: 'white', fontSize: '3rem', fontWeight: 800, marginBottom: '16px' }}>
-            Pastoral Juvenil Parroquial
+            {branding.heroTitle}
           </h1>
           <p style={{
             color: '#e2e8f0',
@@ -1014,7 +1015,7 @@ export default function HomePage() {
             margin: '0 auto 30px auto',
             fontWeight: 400
           }}>
-            Un espacio de encuentro, oración y servicio para jóvenes comprometidos. Registra tus datos, entérate de las actividades y forma parte de nuestra comunidad.
+            {branding.heroSubtitle} Registra tus datos, entérate de las actividades y forma parte de nuestra comunidad.
           </p>
 
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
@@ -1109,10 +1110,10 @@ export default function HomePage() {
       }}>
         <div className="container">
           <p style={{ marginBottom: '8px' }}>
-            &copy; 2026 Pastoral Juvenil. Todos los derechos reservados.
+            &copy; 2026 {branding.name}. Todos los derechos reservados.
           </p>
           <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>
-            Unidos en la Fe, sirviendo con Alegría.
+            {branding.footerTagline}
           </p>
         </div>
       </footer>

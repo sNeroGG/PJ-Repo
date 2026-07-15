@@ -1,5 +1,6 @@
 import { Outfit } from "next/font/google";
 import "./globals.css";
+import { branding } from "../lib/branding";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -9,8 +10,8 @@ const outfit = Outfit({
 });
 
 export const metadata = {
-  title: "Pastoral Juvenil - Portal de Integrantes",
-  description: "Sistema de registro, formularios y calendario para jóvenes del grupo católico Pastoral Juvenil.",
+  title: branding.metadataTitle,
+  description: branding.metadataDescription,
 };
 
 export default function RootLayout({ children }) {

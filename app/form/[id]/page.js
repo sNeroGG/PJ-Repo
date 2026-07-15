@@ -10,6 +10,7 @@ import QuantityGroupControl from '../../../components/QuantityGroupControl';
 import KitPickerControl from '../../../components/KitPickerControl';
 import KitColorSizesControl from '../../../components/KitColorSizesControl';
 import { shouldHideNavbarOnFormLink } from '../../../lib/portalRules';
+import { branding } from '../../../lib/branding';
 import { ClipboardList, CheckCircle2, AlertCircle, ArrowLeft, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function FillFormPage() {
@@ -697,7 +698,7 @@ export default function FillFormPage() {
               ¡Respuestas Guardadas!
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', maxWidth: '500px', margin: '0 auto 30px auto', lineHeight: 1.6 }}>
-              Hemos guardado tu respuesta. Muchas gracias por tu participación en la Pastoral Juvenil.
+              Hemos guardado tu respuesta. Gracias por participar en {branding.name}.
             </p>
 
             <button onClick={() => router.push('/')} className="btn btn-primary" style={{ minWidth: '180px' }}>

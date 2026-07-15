@@ -33,6 +33,9 @@ import {
   formatKitColorSizesAnswer,
   getKitColorTotal,
   getKitColorSizeTotal,
+  canSetKitColorQty,
+  canSetKitSectionArticleQty,
+  getKitSectionArticleQty,
 } from '../lib/formLogic';
 
 const parentQuestion = {
@@ -473,27 +476,54 @@ describe('formLogic - multi article kit (Kit 3)', () => {
       'q-kits': '2',
       'q-kit3': {
         camisas: { colors: { Crema: 2 }, sizes: { Crema: { S: 1, M: 1 } } },
-        gorra: { colors: { Negro: 1 }, sizes: {} },
-        sombrero: { colors: { Beige: 1 }, sizes: {} },
+        gorra: { articleQty: 1, colors: { Negro: 1 }, sizes: {} },
+        sombrero: { articleQty: 1, colors: { Beige: 1 }, sizes: {} },
       },
     };
 
     expect(
+      canSetKitSectionArticleQty(kit3Question, 'gorra', 2, answers, questions)
+    ).toBe(false);
+    expect(
+      canSetKitSectionArticleQty(kit3Question, 'sombrero', 2, answers, questions)
+    ).toBe(false);
+    expect(
       canSetKitColorQty(kit3Question, 'gorra', 'Azul', 1, answers, questions)
     ).toBe(false);
     expect(
-      canSetKitColorQty(kit3Question, 'sombrero', 'Natural', 1, answers, questions)
-    ).toBe(false);
-    expect(
-      canSetKitColorQty(kit3Question, 'gorra', 'Azul', 1, {
+      canSetKitSectionArticleQty(kit3Question, 'gorra', 2, {
         ...answers,
         'q-kit3': {
           ...answers['q-kit3'],
-          gorra: { colors: { Negro: 2 }, sizes: {} },
-          sombrero: { colors: {}, sizes: {} },
+          gorra: { articleQty: 2, colors: { Negro: 2 }, sizes: {} },
+          sombrero: { articleQty: 0, colors: {}, sizes: {} },
         },
       }, questions)
     ).toBe(true);
+  });
+
+  test('gorra/sombrero colors require article qty before selection', () => {
+    const questions = [kitsQuestion, kit3Question];
+    const answers = {
+      'q-kits': '2',
+      'q-kit3': {
+        camisas: { colors: {}, sizes: {} },
+        gorra: { articleQty: 0, colors: {}, sizes: {} },
+        sombrero: { articleQty: 0, colors: {}, sizes: {} },
+      },
+    };
+
+    expect(canSetKitColorQty(kit3Question, 'gorra', 'Negro', 1, answers, questions)).toBe(false);
+    expect(canSetKitSectionArticleQty(kit3Question, 'gorra', 1, answers, questions)).toBe(true);
+
+    const withGorra = applyKitColorSizesChange(
+      kit3Question,
+      answers,
+      questions,
+      { questionId: 'q-kit3', sectionKey: 'gorra', kind: 'article-qty', value: 1 }
+    );
+    expect(getKitSectionArticleQty(withGorra['q-kit3'].gorra)).toBe(1);
+    expect(canSetKitColorQty(kit3Question, 'gorra', 'Negro', 1, withGorra, questions)).toBe(true);
   });
 
   test('enrichLimitFromShowWhen fills missing kit optionKey', () => {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ClipboardList, Users, Calendar, ArrowRight, Zap, FileText, Settings } from 'lucide-react';
+import { ClipboardList, Users, Calendar, ArrowRight, Zap, FileText, Settings, ExternalLink } from 'lucide-react';
 import { storageService } from '../lib/storage';
+import { branding } from '../lib/branding';
 
 export default function AdminDashboard({ forms, responses, events, setActiveTab }) {
   const [homepageMode, setHomepageMode] = useState('normal');
@@ -25,46 +26,50 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
     setIsSavingSettings(true);
     await storageService.saveSettings({
       mode: homepageMode,
-      featuredFormId: homepageMode === 'single_form' ? featuredFormId : null
+      featuredFormId: homepageMode === 'single_form' ? featuredFormId : null,
     });
     setIsSavingSettings(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  // Estadísticas básicas
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const totalForms = forms.length;
-  const activeFormsCount = forms.filter(f => f.isActive).length;
+  const activeFormsCount = forms.filter((f) => f.isActive).length;
   const totalResponses = responses.length;
-  const upcomingEventsCount = events.filter(e => new Date(e.date) >= new Date('2026-07-09')).length;
+  const upcomingEventsCount = events.filter((e) => new Date(e.date) >= today).length;
+  const registeredYouth = responses.filter((r) => r.formId === 'datos-personales').length;
 
-  // Respuestas del formulario de datos personales (para saber cuántos jóvenes se han inscrito)
-  const registeredYouth = responses.filter(r => r.formId === 'datos-personales').length;
-
-  // Últimas 5 respuestas recibidas
   const recentResponses = [...responses]
     .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
     .slice(0, 5);
 
+  const dateLabel = today.toLocaleDateString('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
     <div>
-      <div style={{ marginBottom: '32px' }}>
-        <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', marginBottom: '8px' }}>
-          ¡Bienvenido, Administrador de la PJ!
-        </h2>
-        <p style={{ color: 'var(--text-muted)' }}>
-          Aquí tienes un resumen de la participación, formularios activos y eventos programados.
+      <header className="admin-page-header">
+        <div className="admin-page-header__badge">{branding.adminTitle}</div>
+        <h2>{branding.adminWelcome}</h2>
+        <p>
+          Resumen de participación, formularios y eventos de {branding.name}. {dateLabel}.
         </p>
-      </div>
+      </header>
 
-      {/* Grid de Métricas */}
       <div className="dashboard-grid">
         <div className="stat-card">
           <div className="stat-icon primary">
             <Users size={28} />
           </div>
           <div className="stat-info">
-            <h4>Jóvenes Registrados</h4>
+            <h4>Jóvenes registrados</h4>
             <p>{registeredYouth}</p>
           </div>
         </div>
@@ -74,8 +79,13 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
             <ClipboardList size={28} />
           </div>
           <div className="stat-info">
-            <h4>Formularios Activos</h4>
-            <p>{activeFormsCount} <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>/ {totalForms}</span></p>
+            <h4>Formularios activos</h4>
+            <p>
+              {activeFormsCount}
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                {' '}/ {totalForms}
+              </span>
+            </p>
           </div>
         </div>
 
@@ -84,7 +94,7 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
             <FileText size={28} />
           </div>
           <div className="stat-info">
-            <h4>Respuestas Recibidas</h4>
+            <h4>Respuestas recibidas</h4>
             <p>{totalResponses}</p>
           </div>
         </div>
@@ -94,83 +104,97 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
             <Calendar size={28} />
           </div>
           <div className="stat-info">
-            <h4>Próximos Eventos</h4>
+            <h4>Próximos eventos</h4>
             <p>{upcomingEventsCount}</p>
           </div>
         </div>
       </div>
 
-      {/* Enlaces de Acceso Rápido */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '40px' }}>
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifycontent: 'space-between' }}>
-          <div className="card-header-accent"></div>
+      <div className="admin-quick-grid">
+        <div className="card admin-quick-card">
+          <div className="card-header-accent" />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <Zap size={20} color="var(--accent)" />
-              <h3 style={{ fontSize: '1.1rem' }}>Crear Formulario Dinámico</h3>
+              <h3 style={{ fontSize: '1.1rem' }}>Crear formulario</h3>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
-              Diseña una nueva encuesta u opinión para los jóvenes, elige si es anónima o nominativa, y activa su URL para compartirla en segundos.
+            <p>
+              Diseña encuestas o registros para los jóvenes. Configura kits, condicionales y comparte la URL al instante.
             </p>
           </div>
           <button onClick={() => setActiveTab('forms')} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
-            Ir a Formularios <ArrowRight size={14} />
+            Ir a formularios <ArrowRight size={14} />
           </button>
         </div>
 
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', justifycontent: 'space-between' }}>
-          <div className="card-header-accent" style={{ background: 'var(--accent)' }}></div>
+        <div className="card admin-quick-card">
+          <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
               <Calendar size={20} color="var(--primary)" />
-              <h3 style={{ fontSize: '1.1rem' }}>Programar Evento</h3>
+              <h3 style={{ fontSize: '1.1rem' }}>Programar evento</h3>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
-              Registra un nuevo encuentro, retiro, misa o convivencia para que todos los jóvenes del grupo puedan verlo en el calendario público.
+            <p>
+              Registra misas, convivios o retiros para que aparezcan en el calendario público de {branding.name}.
             </p>
           </div>
           <button onClick={() => setActiveTab('calendar')} className="btn btn-accent btn-sm" style={{ alignSelf: 'flex-start' }}>
-            Ir al Calendario <ArrowRight size={14} />
+            Ir al calendario <ArrowRight size={14} />
           </button>
+        </div>
+
+        <div className="card admin-quick-card">
+          <div className="card-header-accent" style={{ background: 'linear-gradient(90deg, var(--primary), var(--accent))' }} />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <ExternalLink size={20} color="var(--primary)" />
+              <h3 style={{ fontSize: '1.1rem' }}>Ver portal público</h3>
+            </div>
+            <p>
+              Revisa cómo ven los jóvenes el portal: formularios activos, calendario y modo de inicio configurado.
+            </p>
+          </div>
+          <a href="/" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
+            Abrir portal <ExternalLink size={14} />
+          </a>
         </div>
       </div>
 
-      {/* Configuración de Pantalla de Inicio */}
-      <div className="card" style={{ marginBottom: '32px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
-        <div className="card-header-accent" style={{ background: 'var(--accent)' }}></div>
+      <div className="card admin-settings-card">
+        <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
         <h3 style={{ fontSize: '1.2rem', marginBottom: '12px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Settings size={20} color="var(--accent)" />
-          <span>Configuración del Portal de Inicio (Landing Page)</span>
+          <span>Portal de inicio</span>
         </h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
-          Elige qué verán los jóvenes al entrar al portal. Puedes configurar la vista normal o forzar la pantalla para rellenar únicamente un formulario específico durante horas santas, misas o convivios.
+          Define qué ven los jóvenes al entrar: portal completo o un formulario específico (horas santas, convivios, etc.).
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', alignItems: 'flex-end' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Modo del Portal</label>
-            <select 
-              className="input-text" 
-              value={homepageMode} 
-              onChange={e => setHomepageMode(e.target.value)}
+            <label className="form-label">Modo del portal</label>
+            <select
+              className="input-text"
+              value={homepageMode}
+              onChange={(e) => setHomepageMode(e.target.value)}
               style={{ padding: '8px 12px' }}
             >
-              <option value="normal">Portal Completo (Normal: Calendario, Hero y Enlaces)</option>
-              <option value="single_form">Foco en Formulario Único (Muestra solo el formulario elegido)</option>
+              <option value="normal">Portal completo (calendario, hero y formularios)</option>
+              <option value="single_form">Formulario único (solo el formulario elegido)</option>
             </select>
           </div>
 
           {homepageMode === 'single_form' && (
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Seleccionar Formulario a Mostrar</label>
-              <select 
-                className="input-text" 
-                value={featuredFormId} 
-                onChange={e => setFeaturedFormId(e.target.value)}
+              <label className="form-label">Formulario a mostrar</label>
+              <select
+                className="input-text"
+                value={featuredFormId}
+                onChange={(e) => setFeaturedFormId(e.target.value)}
                 style={{ padding: '8px 12px' }}
               >
-                <option value="">-- Selecciona un formulario --</option>
-                {forms.filter(f => f.isActive).map(f => (
+                <option value="">— Selecciona un formulario —</option>
+                {forms.filter((f) => f.isActive).map((f) => (
                   <option key={f.id} value={f.id}>{f.title}</option>
                 ))}
               </select>
@@ -178,32 +202,29 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
           )}
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button 
-              onClick={handleSaveSettings} 
+            <button
+              onClick={handleSaveSettings}
               className="btn btn-primary"
               disabled={isSavingSettings || (homepageMode === 'single_form' && !featuredFormId)}
               style={{ minWidth: '160px', height: '40px' }}
             >
-              {isSavingSettings ? 'Guardando...' : 'Guardar Configuración'}
+              {isSavingSettings ? 'Guardando...' : 'Guardar configuración'}
             </button>
             {saveSuccess && (
               <span style={{ color: '#10b981', fontSize: '0.85rem', fontWeight: 600 }}>
-                ¡Configuración guardada!
+                Configuración guardada
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Respuestas Recientes */}
-      <div className="card">
-        <h3 style={{ fontSize: '1.2rem', marginBottom: '16px', color: 'var(--primary)' }}>
-          Actividad Reciente (Últimas Respuestas)
-        </h3>
-        
+      <div className="card admin-activity-card">
+        <h3>Actividad reciente</h3>
+
         {recentResponses.length === 0 ? (
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
-            Aún no se han recibido respuestas a ningún formulario.
+            Aún no se han recibido respuestas.
           </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -211,17 +232,16 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-muted)', fontWeight: 600 }}>
                   <th style={{ padding: '12px' }}>Formulario</th>
-                  <th style={{ padding: '12px' }}>Usuario / Tipo</th>
-                  <th style={{ padding: '12px' }}>Fecha de Envío</th>
+                  <th style={{ padding: '12px' }}>Participante</th>
+                  <th style={{ padding: '12px' }}>Fecha</th>
                   <th style={{ padding: '12px', textAlign: 'right' }}>Acción</th>
                 </tr>
               </thead>
               <tbody>
-                {recentResponses.map(resp => {
-                  const form = forms.find(f => f.id === resp.formId);
+                {recentResponses.map((resp) => {
+                  const form = forms.find((f) => f.id === resp.formId);
                   const isAnon = form?.isAnonymous;
-                  
-                  // Obtener el nombre si no es anónimo
+
                   let userName = 'Anónimo';
                   if (!isAnon && resp.answers) {
                     const name = resp.answers.nombre || '';
@@ -230,9 +250,9 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
                   }
 
                   return (
-                    <tr key={resp.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'var(--transition)' }} className="table-row-hover">
+                    <tr key={resp.id} style={{ borderBottom: '1px solid var(--border-color)' }} className="table-row-hover">
                       <td style={{ padding: '12px', fontWeight: 600, color: 'var(--primary)' }}>
-                        {form?.title || 'Formulario Eliminado'}
+                        {form?.title || 'Formulario eliminado'}
                       </td>
                       <td style={{ padding: '12px' }}>
                         {isAnon ? (
@@ -246,13 +266,13 @@ export default function AdminDashboard({ forms, responses, events, setActiveTab 
                           day: 'numeric',
                           month: 'short',
                           hour: '2-digit',
-                          minute: '2-digit'
+                          minute: '2-digit',
                         })}
                       </td>
                       <td style={{ padding: '12px', textAlign: 'right' }}>
-                        <button 
-                          onClick={() => setActiveTab('responses')} 
-                          className="btn btn-secondary btn-sm" 
+                        <button
+                          onClick={() => setActiveTab('responses')}
+                          className="btn btn-secondary btn-sm"
                           style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                         >
                           Ver todas

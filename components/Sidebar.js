@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Church, LayoutDashboard, ClipboardList, FileText, Calendar, LogOut, ArrowLeft } from 'lucide-react';
+import { branding } from '../lib/branding';
 
 export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
   const menuItems = [
@@ -33,10 +34,10 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
         <Church size={28} color="var(--accent)" />
         <div>
           <h1 style={{ color: 'white', fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
-            PJ <span style={{ color: 'var(--accent)' }}>Admin</span>
+            {branding.name} <span style={{ color: 'var(--accent)' }}>Admin</span>
           </h1>
           <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
-            Panel de Control
+            {branding.adminSubtitle}
           </span>
         </div>
       </div>
@@ -99,7 +100,7 @@ export default function Sidebar({ activeTab, setActiveTab, onLogout }) {
           fontWeight: 600
         }}>
           <ArrowLeft size={16} />
-          <span>Volver al Portal</span>
+          <span>Volver a {branding.name}</span>
         </Link>
 
         <button

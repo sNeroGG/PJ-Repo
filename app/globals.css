@@ -1,4 +1,4 @@
-/* Sistema de Diseño y Estilos para Portal Pastoral Juvenil (PJ) */
+/* Sistema de diseño — DelMatus Portal Juvenil */
 
 :root {
   /* Paleta de Colores (Azul Oscuro, Blanco y Amarillo para botones) */
@@ -306,6 +306,12 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   gap: 20px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
@@ -335,6 +341,302 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 1.8rem;
   font-weight: 800;
   color: var(--primary);
+}
+
+/* Admin dashboard */
+.admin-page-header {
+  margin-bottom: 32px;
+}
+
+.admin-page-header h2 {
+  font-size: 1.85rem;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.admin-page-header p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.admin-page-header__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent-hover);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+
+.admin-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.admin-quick-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 180px;
+}
+
+.admin-quick-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.admin-settings-card {
+  margin-bottom: 32px;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-activity-card h3 {
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+  color: var(--primary);
+}
+
+/* Kit form controls */
+.kit-control {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kit-control-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.kit-control-total {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.kit-control-total--limit {
+  color: var(--danger);
+}
+
+.kit-group-banner {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fffaf0;
+  border: 1px solid #fbd38d;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #b7791f;
+}
+
+.kit-group-banner--complete {
+  color: var(--danger);
+}
+
+.kit-group-banner__hint {
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.kit-section-block {
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: #fafbfd;
+  overflow: hidden;
+}
+
+.kit-section-block--inline {
+  border: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.kit-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #fafbfd;
+}
+
+.kit-section-header--shared {
+  background: #fffaf0;
+}
+
+.kit-section-title {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.kit-section-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.kit-section-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+.kit-section-meta--limit,
+.kit-section-meta--done {
+  color: var(--accent-hover);
+}
+
+.kit-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 14px;
+}
+
+.kit-colors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kit-colors-list--inline {
+  gap: 0;
+}
+
+.kit-color-row {
+  border-radius: 8px;
+  border: 1px solid #edf2f7;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.kit-color-row--inline {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.kit-color-row__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kit-color-name {
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.9rem;
+}
+
+.kit-sizes-block {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  background: #fff;
+}
+
+.kit-colors-list--inline .kit-sizes-block {
+  margin-top: 8px;
+  padding-left: 12px;
+  border: none;
+  border-left: 2px solid #e2e8f0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.kit-sizes-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.kit-sizes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kit-size-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-weight: 500;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+.kit-empty-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.kit-inline-config {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eef2f6;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kit-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kit-picker-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #eef2f6;
+  background: #fff;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.kit-picker-item--active {
+  border-color: #dbeafe;
+  background: #fafbff;
+}
+
+.kit-picker-item__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.kit-picker-item__label {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.88rem;
 }
 
 /* Calendario Grid */
