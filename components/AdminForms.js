@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload, GitBranch } from 'lucide-react';
 import { storageService } from '../lib/storage';
-import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType } from '../lib/formLogic';
+import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType, getQuestionTypeLabel, enrichLimitFromShowWhen, normalizeQuestionsConfig, getQuestionConfigWarnings } from '../lib/formLogic';
 import ImageCropperModal from './ImageCropperModal';
 
 const DEFAULT_KIT_SECTIONS = [
@@ -11,6 +11,13 @@ const DEFAULT_KIT_SECTIONS = [
   { key: 'gorra', label: 'Gorra', optionsStr: 'Negro, Azul marino, Rojo', sizeOptionsStr: '', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
   { key: 'sombrero', label: 'Sombrero', optionsStr: 'Beige, Caqui, Natural', sizeOptionsStr: '', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
 ];
+
+const QUESTION_TYPE_HINTS = {
+  'kit-picker': 'El usuario elige cuántos de cada kit con botones −/+. Usa los botones + "Kit X" para crear preguntas de configuración.',
+  'quantity-group': 'Varias opciones con cantidad −/+ cada una. Útil cuando no son kits sino cantidades por producto.',
+  'kit-color-sizes': 'Colores con −/+ y tallas que se abren automáticamente. Conviene como pregunta condicional de un kit.',
+  number: 'Para cantidad simple. Activa −/+ si quieres botones en lugar de escribir el número.',
+};
 
 export default function AdminForms({ forms, onRefreshForms }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -136,7 +143,6 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempKitSections(DEFAULT_KIT_SECTIONS);
     setTempSharedGroupMaxFromId('');
     setTempSharedGroupMaxFromOption('');
-    setTempSharedGroupMaxFromOption('');
   };
 
   const buildKitSectionsFromTemp = () => tempKitSections.map((section, index) => {
@@ -231,7 +237,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
     else delete questionObj.sizeOptions;
 
     if (tempMaxSelectionsFromId) {
-      questionObj.maxTotalFrom = { questionId: tempMaxSelectionsFromId };
+      questionObj.maxTotalFrom = {
+        questionId: tempMaxSelectionsFromId,
+        ...(tempMaxSelectionsFromOption ? { optionKey: tempMaxSelectionsFromOption } : {}),
+      };
     } else {
       delete questionObj.maxTotalFrom;
     }
@@ -258,7 +267,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       };
     };
 
-    const limitFrom = buildLimitFromTemp();
+    const limitFrom = enrichLimitFromShowWhen(buildLimitFromTemp(), showWhen, newQuestions);
     const maxSelectionsFrom = tempType === 'checkbox-group' && limitFrom ? limitFrom : undefined;
     const maxTotalFrom = ['quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType) && limitFrom ? limitFrom : undefined;
     const sizeOptions = tempType === 'kit-color-sizes' && tempSizeOptionsStr.trim()
@@ -373,19 +382,101 @@ export default function AdminForms({ forms, onRefreshForms }) {
     handleCancelEditQuestion();
     setTempShowWhenParentId(parentQuestion.id);
     setTempShowWhenValue(optionValue);
-    setTempLabel('');
+    setTempLabel(isOptionQuantityType(parentQuestion.type) ? `Configuración de ${optionValue}` : '');
     setTempDescription('');
     setTempType(isOptionQuantityType(parentQuestion.type) ? 'kit-color-sizes' : 'text');
-    setTempRequired(false);
+    setTempRequired(isOptionQuantityType(parentQuestion.type));
     setTempAllowFile(false);
     setTempFileRequired(false);
     setTempImageUrl('');
-    setTempOptionsStr(isOptionQuantityType(parentQuestion.type) ? 'Crema, Blanco, Negro' : '');
+    setTempOptionsStr(isOptionQuantityType(parentQuestion.type) ? 'Crema, Blanco' : '');
+    setTempSizeOptionsStr('S, M, L, XL');
     if (isOptionQuantityType(parentQuestion.type)) {
       setTempMaxSelectionsFromId(parentQuestion.id);
       setTempMaxSelectionsFromOption(optionValue);
     }
     document.getElementById('add-question-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const syncLimitFieldsFromShowWhen = (parentId, optionValue) => {
+    const parent = newQuestions.find((q) => q.id === parentId);
+    if (!parent || !isOptionQuantityType(parent.type) || !optionValue) return;
+    if (!['kit-color-sizes', 'quantity-group'].includes(tempType)) return;
+    setTempMaxSelectionsFromId(parentId);
+    setTempMaxSelectionsFromOption(optionValue);
+  };
+
+  const renderQuestionTypeSelect = (value, onChange, disabled = false) => (
+    <select className="select" value={value} onChange={onChange} disabled={disabled}>
+      <optgroup label="Respuestas básicas">
+        <option value="text">Texto corto</option>
+        <option value="textarea">Texto largo (párrafo)</option>
+        <option value="number">Número</option>
+        <option value="date">Fecha</option>
+        <option value="select">Lista de selección única</option>
+        <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
+      </optgroup>
+      <optgroup label="Kits y cantidades">
+        <option value="kit-picker">Selector de kits (−/+ por kit)</option>
+        <option value="quantity-group">Cantidades por opción (−/+)</option>
+        <option value="kit-color-sizes">Colores y tallas (configurar kit)</option>
+      </optgroup>
+    </select>
+  );
+
+  const renderTypeHintField = () => {
+    const hint = QUESTION_TYPE_HINTS[tempType];
+    if (!hint) return null;
+    return (
+      <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5, fontStyle: 'italic' }}>
+        {hint}
+      </p>
+    );
+  };
+
+  const renderQuestionWarnings = (question) => {
+    const warnings = getQuestionConfigWarnings(question, newQuestions);
+    if (warnings.length === 0) return null;
+    return (
+      <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        {warnings.map((warning) => (
+          <div key={warning} style={{ color: '#c53030', fontSize: '0.72rem', fontWeight: 500 }}>
+            ⚠ {warning}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderQuestionContentSummary = (question) => {
+    if (question.type === 'kit-picker' && (question.options || []).length > 0) {
+      return (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
+          Kits: {(question.options || []).join(', ')}
+        </div>
+      );
+    }
+
+    if (question.type === 'kit-color-sizes' && !(question.sections || []).length) {
+      return (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
+          Colores: {(question.options || []).join(', ') || 'sin definir'}
+          {(question.sizeOptions || []).length > 0 && (
+            <span> · Tallas: {(question.sizeOptions || []).join(', ')}</span>
+          )}
+        </div>
+      );
+    }
+
+    if ((question.options || []).length > 0 && !['kit-picker', 'kit-color-sizes'].includes(question.type)) {
+      return (
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
+          Opciones: {(question.options || []).join(', ')}
+        </div>
+      );
+    }
+
+    return null;
   };
 
   // Cancelar edición de pregunta
@@ -445,7 +536,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       isAnonymous: newFormIsAnon,
       layoutMode: newFormLayoutMode,
       createdAt: new Date().toISOString(),
-      questions: newQuestions,
+      questions: normalizeQuestionsConfig(newQuestions),
       flyerUrl: newFormFlyerUrl
     };
 
@@ -619,7 +710,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       >
         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px', display: 'block' }}>
           {isKitColorSizes
-            ? 'Total según cantidad de kits elegidos'
+            ? 'Límite de colores según cantidad del kit'
             : isOptionQtyType
             ? 'Total máximo según otra cantidad'
             : 'Límite de selección según cantidad'}
@@ -636,7 +727,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
             <option value="">Sin límite dinámico</option>
             {limitCandidates.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
-                {candidate.label} ({candidate.type === 'number' ? 'número' : 'cantidades'})
+                {candidate.label} ({candidate.type === 'number' ? 'número' : 'selector de kits'})
               </option>
             ))}
           </select>
@@ -645,8 +736,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
               className="select"
               value={tempMaxSelectionsFromOption}
               onChange={(e) => setTempMaxSelectionsFromOption(e.target.value)}
+              style={!tempMaxSelectionsFromOption ? { borderColor: '#fc8181' } : undefined}
             >
-              <option value="">-- Kit u opción --</option>
+              <option value="">-- ¿Qué kit? (requerido) --</option>
               {sourceOptions.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
@@ -655,6 +747,11 @@ export default function AdminForms({ forms, onRefreshForms }) {
             </select>
           )}
         </div>
+        {isKitColorSizes && isOptionQuantityType(selectedSource?.type) && !tempMaxSelectionsFromOption && tempMaxSelectionsFromId && (
+          <p style={{ fontSize: '0.72rem', color: '#c53030', marginTop: '8px', marginBottom: 0, fontWeight: 500 }}>
+            Debes elegir el kit (ej. Kit 2) para que el límite coincida con la cantidad elegida.
+          </p>
+        )}
         {tempMaxSelectionsFromId && (
           <p style={{ fontSize: '0.72rem', color: '#b7791f', marginTop: '8px', marginBottom: 0, fontStyle: 'italic' }}>
             {isKitColorSizes
@@ -953,7 +1050,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
             <option value="">Siempre visible (sin condición)</option>
             {parentCandidates.map((pq) => (
               <option key={pq.id} value={pq.id}>
-                {pq.label}
+                {pq.label} ({getQuestionTypeLabel(pq.type)})
               </option>
             ))}
           </select>
@@ -961,12 +1058,18 @@ export default function AdminForms({ forms, onRefreshForms }) {
             <select
               className="select"
               value={tempShowWhenValue}
-              onChange={(e) => setTempShowWhenValue(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setTempShowWhenValue(value);
+                syncLimitFieldsFromShowWhen(tempShowWhenParentId, value);
+              }}
             >
-              <option value="">-- Selecciona la respuesta --</option>
+              <option value="">
+                {isOptionQuantityType(selectedParent?.type) ? '-- ¿Qué kit activa esta pregunta? --' : '-- Selecciona la respuesta --'}
+              </option>
               {availableOptions.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt}
+                  {isOptionQuantityType(selectedParent?.type) ? `${opt} (si cantidad > 0)` : opt}
                 </option>
               ))}
             </select>
@@ -1009,7 +1112,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       description: newFormDesc,
       isAnonymous: newFormIsAnon,
       layoutMode: newFormLayoutMode,
-      questions: newQuestions,
+      questions: normalizeQuestionsConfig(newQuestions),
       flyerUrl: newFormFlyerUrl
     };
 
@@ -1025,6 +1128,25 @@ export default function AdminForms({ forms, onRefreshForms }) {
           Aún no has agregado ninguna pregunta. Usa el formulario de abajo para agregar preguntas.
         </p>
       ) : (
+        <>
+          {newQuestions.some((q) => q.type === 'kit-picker') && (
+            <div style={{
+              padding: '12px 14px',
+              backgroundColor: '#f0fff4',
+              border: '1px solid #9ae6b4',
+              borderRadius: '8px',
+              marginBottom: '14px',
+              fontSize: '0.78rem',
+              lineHeight: 1.55,
+            }}>
+              <strong style={{ color: '#276749' }}>Guía rápida — Kits</strong>
+              <ol style={{ margin: '8px 0 0', paddingLeft: '18px', color: '#2f855a' }}>
+                <li>Crea un <strong>Selector de kits</strong> con los nombres (Kit 1, Kit 2…).</li>
+                <li>Usa el botón <strong>+ &quot;Kit X&quot; (qty&gt;0)</strong> para agregar colores y tallas.</li>
+                <li>Verifica que el límite diga <strong>→ &quot;Kit X&quot;</strong>, no solo el nombre del combo.</li>
+              </ol>
+            </div>
+          )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
           {newQuestions.map((q, idx) => {
             const isEditing = editingQuestionId === q.id;
@@ -1048,7 +1170,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         {idx + 1}. {q.label}
                       </span>
                       <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                        {q.type}
+                        {getQuestionTypeLabel(q.type)}
                       </span>
                       {q.showWhen && (
                         <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', backgroundColor: '#ebf8ff', color: '#2b6cb0', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
@@ -1102,11 +1224,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         📎 Archivo {q.fileRequired ? 'Obligatorio' : 'Opcional'}
                       </span>
                     )}
-                    {(q.options || []).length > 0 && (
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
-                        Opciones: {(q.options || []).join(', ')}
-                      </div>
-                    )}
+                    {renderQuestionContentSummary(q)}
+                    {renderQuestionWarnings(q)}
                     {(q.sections || []).length > 0 && (
                       <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         {(q.sections || []).map((section) => (
@@ -1257,17 +1376,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>Tipo de campo</label>
-                        <select className="select" value={tempType} onChange={e => setTempType(e.target.value)}>
-                          <option value="text">Texto corto</option>
-                          <option value="textarea">Texto largo (párrafo)</option>
-                          <option value="number">Número</option>
-                          <option value="date">Fecha</option>
-                          <option value="select">Lista de selección única</option>
-                          <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
-                          <option value="kit-picker">¿Deseas agregar algún kit? (+/− por kit)</option>
-                          <option value="quantity-group">Cantidades por opción (+/− kits)</option>
-                          <option value="kit-color-sizes">Colores y tallas en una pregunta (kits)</option>
-                        </select>
+                        {renderQuestionTypeSelect(tempType, (e) => setTempType(e.target.value))}
                       </div>
 
                       <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', height: '100%', paddingTop: '20px' }}>
@@ -1283,6 +1392,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         </label>
                       </div>
                     </div>
+
+                    {renderTypeHintField()}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px', marginTop: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -1425,6 +1536,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
             );
           })}
         </div>
+        </>
       )}
     </>
   );
@@ -1873,22 +1985,11 @@ export default function AdminForms({ forms, onRefreshForms }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>Tipo de campo</label>
-                        <select 
-                          className="select" 
-                          value={editingQuestionId ? 'text' : tempType} 
-                          disabled={!!editingQuestionId}
-                          onChange={e => setTempType(e.target.value)}
-                        >
-                          <option value="text">Texto corto</option>
-                          <option value="textarea">Texto largo (párrafo)</option>
-                          <option value="number">Número</option>
-                          <option value="date">Fecha</option>
-                          <option value="select">Lista de selección única</option>
-                          <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
-                          <option value="kit-picker">¿Deseas agregar algún kit? (+/− por kit)</option>
-                          <option value="quantity-group">Cantidades por opción (+/− kits)</option>
-                          <option value="kit-color-sizes">Colores y tallas en una pregunta (kits)</option>
-                        </select>
+                        {renderQuestionTypeSelect(
+                          editingQuestionId ? 'text' : tempType,
+                          (e) => setTempType(e.target.value),
+                          !!editingQuestionId
+                        )}
                       </div>
 
                       <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', height: '100%', paddingTop: '24px' }}>
@@ -1905,6 +2006,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         </label>
                       </div>
                     </div>
+
+                    {!editingQuestionId && renderTypeHintField()}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px', marginTop: '6px' }}>
                       <div style={{ display: 'flex', alignItems: 'center' }}>

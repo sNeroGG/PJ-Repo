@@ -11,6 +11,8 @@ import {
   formatShowWhenLabel,
   getMaxSelectionsForQuestion,
   getMaxTotalForQuestion,
+  enrichLimitFromShowWhen,
+  getQuestionConfigWarnings,
   getQuantityGroupTotal,
   enforceSelectionLimits,
   enforceQuantityLimits,
@@ -488,6 +490,33 @@ describe('formLogic - multi article kit (Kit 3)', () => {
         },
       }, questions)
     ).toBe(true);
+  });
+
+  test('enrichLimitFromShowWhen fills missing kit optionKey', () => {
+    const showWhen = { questionId: 'q-kit-picker', value: 'Kit 2', operator: 'quantity_gt' };
+    expect(enrichLimitFromShowWhen(
+      { questionId: 'q-kit-picker' },
+      showWhen,
+      [{ id: 'q-kit-picker', type: 'kit-picker', options: ['Kit 1', 'Kit 2'] }]
+    )).toEqual({ questionId: 'q-kit-picker', optionKey: 'Kit 2' });
+  });
+
+  test('getQuestionConfigWarnings flags missing kit in dynamic limit', () => {
+    const questions = [
+      { id: 'q-picker', type: 'kit-picker', label: 'Combo', options: ['Kit 1', 'Kit 2'] },
+      {
+        id: 'q-config',
+        type: 'kit-color-sizes',
+        label: 'Camisa',
+        options: ['Crema', 'Blanco'],
+        showWhen: { questionId: 'q-picker', value: 'Kit 2', operator: 'quantity_gt' },
+        maxTotalFrom: { questionId: 'q-picker' },
+      },
+    ];
+
+    expect(getQuestionConfigWarnings(questions[1], questions)).toContain(
+      'Selecciona "Kit 2" en "¿Qué kit?" del límite dinámico.'
+    );
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {
