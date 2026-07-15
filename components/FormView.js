@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import {
   CheckCircle2,
   Send,
@@ -47,20 +47,53 @@ export function FormLightbox({ imageUrl, onClose, title = 'Flyer' }) {
   );
 }
 
-export function FormSuccessScreen({ onBack, backLabel = 'Volver al portal' }) {
+export function FormSuccessScreen({
+  form,
+  message,
+  flyerUrl,
+  title,
+  onBack,
+  backLabel = 'Volver al portal',
+}) {
+  const [lightboxImage, setLightboxImage] = useState(null);
+
+  const displayTitle = title || '¡Respuestas guardadas!';
+  const rawMessage = message ?? form?.successMessage;
+  const displayMessage = rawMessage?.trim()
+    ? rawMessage.trim()
+    : `Gracias por participar en ${branding.name}.`;
+  const displayFlyer = (flyerUrl ?? form?.successFlyerUrl)?.trim() || null;
+
   return (
-    <div className="form-state form-state--success">
-      <div className="form-state__icon">
-        <CheckCircle2 size={44} />
+    <>
+      <div className="form-state form-state--success">
+        {displayFlyer && (
+          <FormFlyerImage
+            src={displayFlyer}
+            alt="Flyer de confirmación"
+            onClick={setLightboxImage}
+            variant="gate"
+          />
+        )}
+
+        <div className="form-state__icon">
+          <CheckCircle2 size={44} />
+        </div>
+        <h2>{displayTitle}</h2>
+        <p className="form-state__message">{displayMessage}</p>
+        {onBack && (
+          <button type="button" onClick={onBack} className="btn btn-primary">
+            <ArrowLeft size={16} /> {backLabel}
+          </button>
+        )}
       </div>
-      <h2>¡Respuestas guardadas!</h2>
-      <p>Gracias por participar en {branding.name}.</p>
-      {onBack && (
-        <button type="button" onClick={onBack} className="btn btn-primary">
-          <ArrowLeft size={16} /> {backLabel}
-        </button>
-      )}
-    </div>
+
+      <FormLightbox
+        imageUrl={lightboxImage}
+        onClose={() => setLightboxImage(null)}
+        title="Confirmación"
+      />
+    </>
   );
 }
 

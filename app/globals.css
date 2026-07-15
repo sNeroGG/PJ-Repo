@@ -772,6 +772,15 @@ h1, h2, h3, h4, h5, h6 {
   max-width: 420px;
 }
 
+.form-state--success .form-flyer {
+  max-width: 360px;
+  margin: 0 auto 24px;
+}
+
+.form-state__message {
+  white-space: pre-wrap;
+}
+
 .form-state__cta {
   width: 100%;
   max-width: 320px;

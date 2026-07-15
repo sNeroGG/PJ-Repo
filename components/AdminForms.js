@@ -75,6 +75,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [newFormIsAnon, setNewFormIsAnon] = useState(false);
   const [newQuestions, setNewQuestions] = useState([]);
   const [newFormFlyerUrl, setNewFormFlyerUrl] = useState('');
+  const [newFormSuccessMessage, setNewFormSuccessMessage] = useState('');
+  const [newFormSuccessFlyerUrl, setNewFormSuccessFlyerUrl] = useState('');
   const [newFormLayoutMode, setNewFormLayoutMode] = useState('all-in-one');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -114,7 +116,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   // Estados del Recortador de Imagen
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperImage, setCropperImage] = useState('');
-  const [cropperTarget, setCropperTarget] = useState(''); // 'flyer' o 'question'
+  const [cropperTarget, setCropperTarget] = useState(''); // 'flyer', 'success-flyer' o 'question'
   const [cropperFileName, setCropperFileName] = useState('');
   const [cropperFileType, setCropperFileType] = useState('');
 
@@ -696,7 +698,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
       layoutMode: newFormLayoutMode,
       createdAt: new Date().toISOString(),
       questions: normalizeQuestionsConfig(newQuestions),
-      flyerUrl: newFormFlyerUrl
+      flyerUrl: newFormFlyerUrl,
+      successMessage: newFormSuccessMessage.trim(),
+      successFlyerUrl: newFormSuccessFlyerUrl,
     };
 
     await storageService.saveForm(formObj);
@@ -729,6 +733,34 @@ export default function AdminForms({ forms, onRefreshForms }) {
       setNewFormFlyerUrl(data.url);
     } catch (error) {
       console.error('Error uploading file:', error);
+      setUploadError(error.message || 'Error de red al subir la imagen.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const uploadSuccessFlyer = async (file) => {
+    setIsUploading(true);
+    setUploadError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al subir la imagen.');
+      }
+
+      const data = await response.json();
+      setNewFormSuccessFlyerUrl(data.url);
+    } catch (error) {
+      console.error('Error uploading success flyer:', error);
       setUploadError(error.message || 'Error de red al subir la imagen.');
     } finally {
       setIsUploading(false);
@@ -791,6 +823,32 @@ export default function AdminForms({ forms, onRefreshForms }) {
     e.target.value = null; // resetear input
   };
 
+  const handleSuccessFlyerUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Por favor selecciona una imagen válida (PNG, JPG, WebP).');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('La imagen es demasiado grande. El límite es de 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCropperImage(reader.result);
+      setCropperFileName(file.name);
+      setCropperFileType(file.type);
+      setCropperTarget('success-flyer');
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = null;
+  };
+
   const handleQuestionImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -822,6 +880,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setCropperOpen(false);
     if (cropperTarget === 'flyer') {
       await uploadFlyer(croppedFile);
+    } else if (cropperTarget === 'success-flyer') {
+      await uploadSuccessFlyer(croppedFile);
     } else if (cropperTarget === 'question') {
       await uploadQuestionImage(croppedFile);
     }
@@ -834,6 +894,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setNewFormIsAnon(false);
     setNewQuestions([]);
     setNewFormFlyerUrl('');
+    setNewFormSuccessMessage('');
+    setNewFormSuccessFlyerUrl('');
     setNewFormLayoutMode('all-in-one');
     setIsUploading(false);
     setUploadError('');
@@ -1465,6 +1527,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setNewFormIsAnon(form.isAnonymous);
     setNewQuestions([...form.questions]);
     setNewFormFlyerUrl(form.flyerUrl || '');
+    setNewFormSuccessMessage(form.successMessage || '');
+    setNewFormSuccessFlyerUrl(form.successFlyerUrl || '');
     setNewFormLayoutMode(form.layoutMode || 'all-in-one');
     setIsEditMode(true);
     setActiveEditFormId(form.id);
@@ -1485,7 +1549,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
       isAnonymous: newFormIsAnon,
       layoutMode: newFormLayoutMode,
       questions: normalizeQuestionsConfig(newQuestions),
-      flyerUrl: newFormFlyerUrl
+      flyerUrl: newFormFlyerUrl,
+      successMessage: newFormSuccessMessage.trim(),
+      successFlyerUrl: newFormSuccessFlyerUrl,
     };
 
     await storageService.saveForm(formObj);
@@ -2316,6 +2382,108 @@ export default function AdminForms({ forms, onRefreshForms }) {
                   </select>
                 </div>
 
+                <div
+                  className="form-group"
+                  style={{
+                    marginBottom: '20px',
+                    padding: '16px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid #c6f6d5',
+                    background: '#f0fff4',
+                  }}
+                >
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: '6px', display: 'block' }}>
+                    Pantalla de confirmación al enviar
+                  </label>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.45 }}>
+                    Mensaje personalizado y flyer opcional que verá el participante después de responder.
+                  </p>
+
+                  <div className="form-group" style={{ marginBottom: '12px' }}>
+                    <label className="form-label" style={{ fontSize: '0.82rem' }}>Mensaje de agradecimiento</label>
+                    <textarea
+                      className="textarea"
+                      rows={4}
+                      placeholder={'Ej. ¡Gracias por registrarte!\nTe esperamos el sábado 20 de julio a las 4:00 p.m.\n\nCualquier duda escríbenos por WhatsApp.'}
+                      value={newFormSuccessMessage}
+                      onChange={(e) => setNewFormSuccessMessage(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Flyer de confirmación (opcional)</span>
+                      {newFormSuccessFlyerUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setNewFormSuccessFlyerUrl('')}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--danger)',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Trash2 size={14} /> Quitar
+                        </button>
+                      )}
+                    </label>
+
+                    {newFormSuccessFlyerUrl ? (
+                      <div style={{
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 'var(--radius-sm)',
+                        overflow: 'hidden',
+                        background: '#fff',
+                        marginBottom: '10px',
+                      }}
+                      >
+                        <img
+                          src={newFormSuccessFlyerUrl}
+                          alt="Vista previa flyer de confirmación"
+                          style={{ width: '100%', maxHeight: '180px', objectFit: 'contain', display: 'block', background: '#f7fafc' }}
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => document.getElementById('success-flyer-file-input')?.click()}
+                        disabled={isUploading}
+                        style={{ marginBottom: '10px' }}
+                      >
+                        <Upload size={14} /> {isUploading ? 'Subiendo...' : 'Subir flyer'}
+                      </button>
+                    )}
+
+                    <input
+                      id="success-flyer-file-input"
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={handleSuccessFlyerUpload}
+                    />
+
+                    <input
+                      type="text"
+                      className="input-text"
+                      placeholder="O pega una URL de imagen..."
+                      value={newFormSuccessFlyerUrl}
+                      onChange={(e) => {
+                        setNewFormSuccessFlyerUrl(e.target.value);
+                        setUploadError('');
+                      }}
+                      disabled={isUploading}
+                    />
+                  </div>
+                </div>
+
                 {/* Preguntas del Formulario (Sección de una sola columna) */}
                 <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   
@@ -2592,7 +2760,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
         imageSrc={cropperImage}
         fileName={cropperFileName}
         fileType={cropperFileType}
-        defaultAspectRatio={cropperTarget === 'flyer' ? 16/9 : null}
+        defaultAspectRatio={cropperTarget === 'flyer' || cropperTarget === 'success-flyer' ? 16/9 : null}
         onCrop={handleCropComplete}
         onClose={() => setCropperOpen(false)}
       />

@@ -344,6 +344,7 @@ export default function FillFormPage() {
           <div className="form-card">
             <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
             <FormSuccessScreen
+              form={form}
               onBack={() => router.push('/')}
               backLabel="Volver al portal"
             />

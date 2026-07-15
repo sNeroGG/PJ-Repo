@@ -313,7 +313,7 @@ export default function HomePage() {
           {isSubmitted ? (
             <div className="form-card">
               <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
-              <FormSuccessScreen />
+              <FormSuccessScreen form={featuredForm} />
             </div>
           ) : showGateScreen ? (
             <div className="form-card">
