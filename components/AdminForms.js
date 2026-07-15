@@ -3,13 +3,13 @@
 import { useState } from 'react';
 import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload, GitBranch } from 'lucide-react';
 import { storageService } from '../lib/storage';
-import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel } from '../lib/formLogic';
+import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType } from '../lib/formLogic';
 import ImageCropperModal from './ImageCropperModal';
 
 const DEFAULT_KIT_SECTIONS = [
-  { key: 'camisas', label: 'Camisas', optionsStr: 'Crema, Blanco, Negro', sizeOptionsStr: 'S, M, L, XL', maxFromId: '', maxFixed: '', sharedGroup: '' },
-  { key: 'gorra', label: 'Gorra', optionsStr: 'Negro, Azul marino, Rojo', sizeOptionsStr: '', maxFromId: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
-  { key: 'sombrero', label: 'Sombrero', optionsStr: 'Beige, Caqui, Natural', sizeOptionsStr: '', maxFromId: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
+  { key: 'camisas', label: 'Camisas', optionsStr: 'Crema, Blanco, Negro', sizeOptionsStr: 'S, M, L, XL', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: '' },
+  { key: 'gorra', label: 'Gorra', optionsStr: 'Negro, Azul marino, Rojo', sizeOptionsStr: '', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
+  { key: 'sombrero', label: 'Sombrero', optionsStr: 'Beige, Caqui, Natural', sizeOptionsStr: '', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: 'gorra-sombrero' },
 ];
 
 export default function AdminForms({ forms, onRefreshForms }) {
@@ -50,6 +50,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [tempKitUseSections, setTempKitUseSections] = useState(false);
   const [tempKitSections, setTempKitSections] = useState(DEFAULT_KIT_SECTIONS);
   const [tempSharedGroupMaxFromId, setTempSharedGroupMaxFromId] = useState('');
+  const [tempSharedGroupMaxFromOption, setTempSharedGroupMaxFromOption] = useState('');
 
   const [copiedFormId, setCopiedFormId] = useState(null);
 
@@ -134,6 +135,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempKitUseSections(false);
     setTempKitSections(DEFAULT_KIT_SECTIONS);
     setTempSharedGroupMaxFromId('');
+    setTempSharedGroupMaxFromOption('');
+    setTempSharedGroupMaxFromOption('');
   };
 
   const buildKitSectionsFromTemp = () => tempKitSections.map((section, index) => {
@@ -154,7 +157,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
     };
 
     if (section.maxFromId && !section.sharedGroup) {
-      built.maxTotalFrom = { questionId: section.maxFromId };
+      built.maxTotalFrom = {
+        questionId: section.maxFromId,
+        ...(section.maxFromOption ? { optionKey: section.maxFromOption } : {}),
+      };
     }
     if (section.maxFixed !== '' && section.maxFixed !== null && section.maxFixed !== undefined && !section.sharedGroup) {
       built.maxFixed = parseInt(String(section.maxFixed), 10);
@@ -176,10 +182,18 @@ export default function AdminForms({ forms, onRefreshForms }) {
       const maxFromId = tempSharedGroupMaxFromId
         || groupSections.find((section) => section.maxFromId)?.maxFromId
         || '';
+      const maxFromOption = tempSharedGroupMaxFromOption
+        || groupSections.find((section) => section.maxFromOption)?.maxFromOption
+        || '';
 
       groups[groupKey] = {
         label,
-        ...(maxFromId ? { maxTotalFrom: { questionId: maxFromId } } : {}),
+        ...(maxFromId ? {
+          maxTotalFrom: {
+            questionId: maxFromId,
+            ...(maxFromOption ? { optionKey: maxFromOption } : {}),
+          },
+        } : {}),
       };
     });
 
@@ -231,7 +245,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     
     // Parsear opciones si aplica
     let options = [];
-    if (['select', 'checkbox-group', 'radio', 'quantity-group', 'kit-color-sizes'].includes(tempType) && tempOptionsStr.trim()) {
+    if (['select', 'checkbox-group', 'radio', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType) && tempOptionsStr.trim()) {
       options = tempOptionsStr.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
     }
 
@@ -246,7 +260,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
 
     const limitFrom = buildLimitFromTemp();
     const maxSelectionsFrom = tempType === 'checkbox-group' && limitFrom ? limitFrom : undefined;
-    const maxTotalFrom = ['quantity-group', 'kit-color-sizes'].includes(tempType) && limitFrom ? limitFrom : undefined;
+    const maxTotalFrom = ['quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType) && limitFrom ? limitFrom : undefined;
     const sizeOptions = tempType === 'kit-color-sizes' && tempSizeOptionsStr.trim()
       ? tempSizeOptionsStr.split(',').map((opt) => opt.trim()).filter(Boolean)
       : undefined;
@@ -342,6 +356,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
           optionsStr: (section.options || []).join(', '),
           sizeOptionsStr: (section.sizeOptions || []).join(', '),
           maxFromId: section.maxTotalFrom?.questionId || '',
+          maxFromOption: section.maxTotalFrom?.optionKey || '',
           maxFixed: section.maxFixed ?? '',
           sharedGroup: section.sharedMaxGroup || '',
         }))
@@ -350,6 +365,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     const sharedGroupEntry = Object.entries(q.sharedMaxGroups || {}).find(([key]) => key === 'gorra-sombrero')
       || Object.entries(q.sharedMaxGroups || {})[0];
     setTempSharedGroupMaxFromId(sharedGroupEntry?.[1]?.maxTotalFrom?.questionId || '');
+    setTempSharedGroupMaxFromOption(sharedGroupEntry?.[1]?.maxTotalFrom?.optionKey || '');
     setEditingQuestionId(q.id);
   };
 
@@ -359,12 +375,16 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempShowWhenValue(optionValue);
     setTempLabel('');
     setTempDescription('');
-    setTempType('text');
+    setTempType(isOptionQuantityType(parentQuestion.type) ? 'kit-color-sizes' : 'text');
     setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
     setTempImageUrl('');
-    setTempOptionsStr('');
+    setTempOptionsStr(isOptionQuantityType(parentQuestion.type) ? 'Crema, Blanco, Negro' : '');
+    if (isOptionQuantityType(parentQuestion.type)) {
+      setTempMaxSelectionsFromId(parentQuestion.id);
+      setTempMaxSelectionsFromOption(optionValue);
+    }
     document.getElementById('add-question-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
@@ -575,17 +595,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
   };
 
   const renderMaxSelectionsField = (questionIndex) => {
-    if (!['checkbox-group', 'quantity-group', 'kit-color-sizes'].includes(tempType)) return null;
+    if (!['checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType)) return null;
     if (tempType === 'kit-color-sizes' && tempKitUseSections) return null;
 
     const limitCandidates = getLimitSourceCandidates(newQuestions, questionIndex)
-      .filter((candidate) => tempType !== 'kit-color-sizes' || candidate.type === 'number');
+      .filter((candidate) => tempType !== 'kit-color-sizes' || candidate.type === 'number' || isOptionQuantityType(candidate.type));
     if (limitCandidates.length === 0 && !tempMaxSelectionsFromId) return null;
 
-    const isQuantityGroup = tempType === 'quantity-group';
+    const isOptionQtyType = isOptionQuantityType(tempType);
     const isKitColorSizes = tempType === 'kit-color-sizes';
     const selectedSource = newQuestions.find((q) => q.id === tempMaxSelectionsFromId);
-    const sourceOptions = selectedSource?.type === 'quantity-group' ? (selectedSource.options || []) : [];
+    const sourceOptions = isOptionQuantityType(selectedSource?.type) ? (selectedSource.options || []) : [];
 
     return (
       <div
@@ -599,8 +619,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
       >
         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px', display: 'block' }}>
           {isKitColorSizes
-            ? 'Total de camisas según cantidad de kits'
-            : isQuantityGroup
+            ? 'Total según cantidad de kits elegidos'
+            : isOptionQtyType
             ? 'Total máximo según otra cantidad'
             : 'Límite de selección según cantidad'}
         </label>
@@ -620,13 +640,13 @@ export default function AdminForms({ forms, onRefreshForms }) {
               </option>
             ))}
           </select>
-          {selectedSource?.type === 'quantity-group' && (
+          {isOptionQuantityType(selectedSource?.type) && (
             <select
               className="select"
               value={tempMaxSelectionsFromOption}
               onChange={(e) => setTempMaxSelectionsFromOption(e.target.value)}
             >
-              <option value="">-- Opción del color/producto --</option>
+              <option value="">-- Kit u opción --</option>
               {sourceOptions.map((opt) => (
                 <option key={opt} value={opt}>
                   {opt}
@@ -638,9 +658,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
         {tempMaxSelectionsFromId && (
           <p style={{ fontSize: '0.72rem', color: '#b7791f', marginTop: '8px', marginBottom: 0, fontStyle: 'italic' }}>
             {isKitColorSizes
-              ? 'Crema y Blanco suman como máximo la cantidad de kits. Si un color es > 0, se abren sus tallas en la misma pregunta.'
-              : isQuantityGroup
-              ? 'La suma de cantidades no podrá superar el valor de la fuente seleccionada (ej. 2 camisas crema → tallas S/M/L/XL deben sumar 2).'
+              ? 'Los colores suman como máximo la cantidad del kit elegido. Si un color es > 0, se abren sus tallas en la misma pregunta.'
+              : isOptionQtyType
+              ? 'La suma de cantidades no podrá superar el valor de la fuente seleccionada.'
               : 'El usuario solo podrá elegir tantas opciones como indique la fuente seleccionada.'}
           </p>
         )}
@@ -651,9 +671,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const renderKitSectionsField = (questionIndex) => {
     if (tempType !== 'kit-color-sizes' || !tempKitUseSections) return null;
 
-    const numberCandidates = getLimitSourceCandidates(newQuestions, questionIndex)
-      .filter((candidate) => candidate.type === 'number');
+    const limitCandidates = getLimitSourceCandidates(newQuestions, questionIndex);
     const hasSharedGroups = tempKitSections.some((section) => section.sharedGroup);
+    const sharedSource = newQuestions.find((q) => q.id === tempSharedGroupMaxFromId);
+    const sharedSourceOptions = isOptionQuantityType(sharedSource?.type) ? (sharedSource.options || []) : [];
 
     return (
       <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -662,16 +683,33 @@ export default function AdminForms({ forms, onRefreshForms }) {
             <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: '8px', display: 'block' }}>
               Límite compartido (ej. Gorra + Sombrero suman lo mismo)
             </label>
-            <select
-              className="select"
-              value={tempSharedGroupMaxFromId}
-              onChange={(e) => setTempSharedGroupMaxFromId(e.target.value)}
-            >
-              <option value="">Según pregunta de cantidad de kits...</option>
-              {numberCandidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
-              ))}
-            </select>
+            <div style={{ display: 'grid', gridTemplateColumns: sharedSourceOptions.length > 0 || tempSharedGroupMaxFromOption ? '1fr 1fr' : '1fr', gap: '10px' }}>
+              <select
+                className="select"
+                value={tempSharedGroupMaxFromId}
+                onChange={(e) => {
+                  setTempSharedGroupMaxFromId(e.target.value);
+                  setTempSharedGroupMaxFromOption('');
+                }}
+              >
+                <option value="">Según pregunta de cantidad de kits...</option>
+                {limitCandidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
+                ))}
+              </select>
+              {isOptionQuantityType(sharedSource?.type) && (
+                <select
+                  className="select"
+                  value={tempSharedGroupMaxFromOption}
+                  onChange={(e) => setTempSharedGroupMaxFromOption(e.target.value)}
+                >
+                  <option value="">-- Kit u opción --</option>
+                  {sharedSourceOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             <p style={{ fontSize: '0.72rem', color: '#b7791f', marginTop: '8px', marginBottom: 0, fontStyle: 'italic' }}>
               Si son 2 kits, gorras + sombreros deben sumar 2 (2 gorras, 2 sombreros, o 1 y 1).
             </p>
@@ -745,32 +783,62 @@ export default function AdminForms({ forms, onRefreshForms }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '10px' }}>
               {!section.sharedGroup ? (
                 <>
-                  <select
-                    className="select"
-                    value={section.maxFromId}
-                    onChange={(e) => {
-                      const updated = [...tempKitSections];
-                      updated[index] = { ...updated[index], maxFromId: e.target.value };
-                      setTempKitSections(updated);
-                    }}
-                  >
-                    <option value="">Máximo según pregunta...</option>
-                    {numberCandidates.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    className="input-text"
-                    min="0"
-                    placeholder="Máx. fijo"
-                    value={section.maxFixed}
-                    onChange={(e) => {
-                      const updated = [...tempKitSections];
-                      updated[index] = { ...updated[index], maxFixed: e.target.value };
-                      setTempKitSections(updated);
-                    }}
-                  />
+                  {(() => {
+                    const sectionSource = newQuestions.find((q) => q.id === section.maxFromId);
+                    const sectionSourceOptions = isOptionQuantityType(sectionSource?.type)
+                      ? (sectionSource.options || [])
+                      : [];
+                    const gridCols = sectionSourceOptions.length > 0 || section.maxFromOption
+                      ? '1fr 1fr 120px'
+                      : '1fr 120px';
+
+                    return (
+                      <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '10px', gridColumn: '1 / -1' }}>
+                        <select
+                          className="select"
+                          value={section.maxFromId}
+                          onChange={(e) => {
+                            const updated = [...tempKitSections];
+                            updated[index] = { ...updated[index], maxFromId: e.target.value, maxFromOption: '' };
+                            setTempKitSections(updated);
+                          }}
+                        >
+                          <option value="">Máximo según pregunta...</option>
+                          {limitCandidates.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>{candidate.label}</option>
+                          ))}
+                        </select>
+                        {isOptionQuantityType(sectionSource?.type) && (
+                          <select
+                            className="select"
+                            value={section.maxFromOption}
+                            onChange={(e) => {
+                              const updated = [...tempKitSections];
+                              updated[index] = { ...updated[index], maxFromOption: e.target.value };
+                              setTempKitSections(updated);
+                            }}
+                          >
+                            <option value="">-- Kit u opción --</option>
+                            {sectionSourceOptions.map((opt) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        )}
+                        <input
+                          type="number"
+                          className="input-text"
+                          min="0"
+                          placeholder="Máx. fijo"
+                          value={section.maxFixed}
+                          onChange={(e) => {
+                            const updated = [...tempKitSections];
+                            updated[index] = { ...updated[index], maxFixed: e.target.value };
+                            setTempKitSections(updated);
+                          }}
+                        />
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <input
@@ -794,7 +862,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
           className="btn btn-secondary btn-sm"
           onClick={() => setTempKitSections([
             ...tempKitSections,
-            { key: `articulo-${tempKitSections.length + 1}`, label: '', optionsStr: '', sizeOptionsStr: '', maxFromId: '', maxFixed: '', sharedGroup: '' },
+            { key: `articulo-${tempKitSections.length + 1}`, label: '', optionsStr: '', sizeOptionsStr: '', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: '' },
           ])}
         >
           + Agregar artículo al kit
@@ -906,7 +974,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
         </div>
         {tempShowWhenParentId && tempShowWhenValue && selectedParent && (
           <p style={{ fontSize: '0.72rem', color: '#2b6cb0', marginTop: '8px', marginBottom: 0, fontStyle: 'italic' }}>
-            {selectedParent.type === 'quantity-group'
+            {selectedParent && isOptionQuantityType(selectedParent.type)
               ? `Esta pregunta aparecerá cuando "${tempShowWhenValue}" tenga cantidad mayor a 0 en "${selectedParent.label}".`
               : `Esta pregunta solo aparecerá si el usuario elige "${tempShowWhenValue}" en "${selectedParent.label}".`}
           </p>
@@ -1052,7 +1120,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         ))}
                       </div>
                     )}
-                    {['select', 'checkbox-group', 'quantity-group'].includes(q.type) && (q.options || []).length > 0 && !isEditing && (
+                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker'].includes(q.type) && (q.options || []).length > 0 && !isEditing && (
                       <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Preguntas condicionales:</span>
                         {(q.options || []).map((opt) => (
@@ -1062,12 +1130,12 @@ export default function AdminForms({ forms, onRefreshForms }) {
                             onClick={() => handleAddConditionalFromOption(q, opt)}
                             className="btn btn-secondary btn-sm"
                             style={{ fontSize: '0.68rem', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                            title={q.type === 'quantity-group'
+                            title={isOptionQuantityType(q.type)
                               ? `Crear pregunta que aparece cuando "${opt}" tenga cantidad > 0`
                               : `Crear pregunta que aparece solo si se elige "${opt}"`}
                           >
                             <Plus size={10} /> &quot;{opt}&quot;
-                            {q.type === 'quantity-group' && <span style={{ opacity: 0.7 }}>(qty&gt;0)</span>}
+                            {isOptionQuantityType(q.type) && <span style={{ opacity: 0.7 }}>(qty&gt;0)</span>}
                           </button>
                         ))}
                       </div>
@@ -1196,6 +1264,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           <option value="date">Fecha</option>
                           <option value="select">Lista de selección única</option>
                           <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
+                          <option value="kit-picker">¿Deseas agregar algún kit? (+/− por kit)</option>
                           <option value="quantity-group">Cantidades por opción (+/− kits)</option>
                           <option value="kit-color-sizes">Colores y tallas en una pregunta (kits)</option>
                         </select>
@@ -1297,7 +1366,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       )}
                     </div>
 
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-color-sizes'].includes(tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
+                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
                       <div className="form-group" style={{ marginBottom: '10px' }}>
                         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
                           Opciones (separadas por comas)
@@ -1305,7 +1374,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         <input 
                           type="text" 
                           className="input-text" 
-                          placeholder="Ej. Opción 1, Opción 2, Opción 3" 
+                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit A, Kit B, Kit C' : 'Ej. Opción 1, Opción 2, Opción 3'} 
                           value={tempOptionsStr} 
                           onChange={e => setTempOptionsStr(e.target.value)} 
                         />
@@ -1816,6 +1885,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           <option value="date">Fecha</option>
                           <option value="select">Lista de selección única</option>
                           <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
+                          <option value="kit-picker">¿Deseas agregar algún kit? (+/− por kit)</option>
                           <option value="quantity-group">Cantidades por opción (+/− kits)</option>
                           <option value="kit-color-sizes">Colores y tallas en una pregunta (kits)</option>
                         </select>
@@ -1919,7 +1989,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       )}
                     </div>
 
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-color-sizes'].includes(editingQuestionId ? '' : tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
+                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(editingQuestionId ? '' : tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
                       <div className="form-group" style={{ marginBottom: '12px' }}>
                         <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>
                           Opciones (separadas por comas)
@@ -1927,7 +1997,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         <input 
                           type="text" 
                           className="input-text" 
-                          placeholder="Ej. Opción 1, Opción 2, Opción 3" 
+                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit A, Kit B, Kit C' : 'Ej. Opción 1, Opción 2, Opción 3'} 
                           value={editingQuestionId ? '' : tempOptionsStr} 
                           disabled={!!editingQuestionId}
                           onChange={e => setTempOptionsStr(e.target.value)} 

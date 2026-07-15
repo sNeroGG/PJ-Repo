@@ -511,7 +511,7 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                     let displayVal = <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Sin responder</span>;
 
                     if (answer !== undefined && answer !== null) {
-                      if (q.type === 'quantity-group' || q.type === 'kit-color-sizes') {
+                      if (q.type === 'quantity-group' || q.type === 'kit-picker' || q.type === 'kit-color-sizes') {
                         displayVal = <span style={{ whiteSpace: 'pre-wrap' }}>{formatAnswerForDisplay(q, answer)}</span>;
                       } else if (Array.isArray(answer)) {
                         displayVal = (

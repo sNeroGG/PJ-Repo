@@ -489,4 +489,33 @@ describe('formLogic - multi article kit (Kit 3)', () => {
       }, questions)
     ).toBe(true);
   });
+
+  test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {
+    const kitPicker = {
+      id: 'q-kit-picker',
+      type: 'kit-picker',
+      label: '¿Deseas agregar algún Kit?',
+      options: ['Kit A', 'Kit B', 'Kit C'],
+    };
+
+    const kitBConfig = {
+      id: 'q-kit-b-config',
+      type: 'kit-color-sizes',
+      label: 'Configura Kit B',
+      options: ['Crema', 'Blanco'],
+      sizeOptions: ['S', 'M', 'L', 'XL'],
+      showWhen: { questionId: 'q-kit-picker', value: 'Kit B', operator: 'quantity_gt' },
+      maxTotalFrom: { questionId: 'q-kit-picker', optionKey: 'Kit B' },
+    };
+
+    expect(buildShowWhen(kitPicker, 'Kit B')).toEqual({
+      questionId: 'q-kit-picker',
+      value: 'Kit B',
+      operator: 'quantity_gt',
+    });
+
+    expect(isQuestionVisible(kitBConfig, { 'q-kit-picker': { 'Kit A': 1, 'Kit B': 0 } })).toBe(false);
+    expect(isQuestionVisible(kitBConfig, { 'q-kit-picker': { 'Kit A': 0, 'Kit B': 2 } })).toBe(true);
+    expect(getMaxTotalForQuestion(kitBConfig, { 'q-kit-picker': { 'Kit B': 2 } }, [kitPicker, kitBConfig])).toBe(2);
+  });
 });

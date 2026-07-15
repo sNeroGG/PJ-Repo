@@ -8,6 +8,7 @@ import { storageService } from '../lib/storage';
 import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, isCheckboxOptionDisabled, getMaxSelectionsForQuestion, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer } from '../lib/formLogic';
 import NumberStepperControl from '../components/NumberStepperControl';
 import QuantityGroupControl from '../components/QuantityGroupControl';
+import KitPickerControl from '../components/KitPickerControl';
 import KitColorSizesControl from '../components/KitColorSizesControl';
 import { shouldShowMaintenanceBlock } from '../lib/portalRules';
 import MaintenanceBlock from '../components/MaintenanceBlock';
@@ -49,7 +50,7 @@ export default function HomePage() {
           feat.questions.forEach(q => {
             if (q.type === 'checkbox-group') {
               initialAnswers[q.id] = [];
-            } else if (q.type === 'quantity-group') {
+            } else if (q.type === 'quantity-group' || q.type === 'kit-picker') {
               initialAnswers[q.id] = {};
             } else if (q.type === 'kit-color-sizes') {
               initialAnswers[q.id] = createEmptyKitAnswer(q);
@@ -224,7 +225,7 @@ export default function HomePage() {
       const ans = answers[q.id];
       if (q.type === 'checkbox-group') {
         if (!ans || ans.length === 0) return false;
-      } else if (q.type === 'quantity-group') {
+      } else if (q.type === 'quantity-group' || q.type === 'kit-picker') {
         if (getQuantityGroupTotal(ans) === 0) return false;
       } else if (q.type === 'kit-color-sizes') {
         if (!isKitColorSizesValid(q, ans)) return false;
@@ -440,6 +441,15 @@ export default function HomePage() {
             </div>
           );
         })()}
+
+        {q.type === 'kit-picker' && featuredForm && (
+          <KitPickerControl
+            question={q}
+            answers={answers}
+            questions={featuredForm.questions}
+            onQuantityChange={handleQuantityOptionChange}
+          />
+        )}
 
         {q.type === 'quantity-group' && featuredForm && (
           <QuantityGroupControl
