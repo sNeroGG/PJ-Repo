@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useCallback } from 'react';
 import {
   CheckCircle2,
   Send,
@@ -7,21 +8,41 @@ import {
   ChevronRight,
   ClipboardList,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 import FormQuestionField from './FormQuestionField';
+import FormFlyerImage from './FormFlyerImage';
 import { branding } from '../lib/branding';
 
-export function FormLightbox({ imageUrl, onClose }) {
+export function FormLightbox({ imageUrl, onClose, title = 'Flyer' }) {
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose?.();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!imageUrl) return undefined;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [imageUrl, handleKeyDown]);
+
   if (!imageUrl) return null;
 
   return (
-    <div className="form-lightbox" onClick={onClose} role="presentation">
-      <div className="form-lightbox__content" onClick={(e) => e.stopPropagation()}>
-        <img src={imageUrl} alt="Imagen ampliada" />
-        <button type="button" className="form-lightbox__close" onClick={onClose} aria-label="Cerrar">
-          &times;
+    <div className="form-lightbox" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="form-lightbox__toolbar">
+        <span>{title}</span>
+        <button type="button" className="form-lightbox__close-btn" onClick={onClose} aria-label="Cerrar">
+          <X size={20} />
         </button>
       </div>
+      <div className="form-lightbox__stage" onClick={(e) => e.stopPropagation()}>
+        <img src={imageUrl} alt={title} className="form-lightbox__image" />
+      </div>
+      <p className="form-lightbox__hint">Clic fuera o Esc para cerrar</p>
     </div>
   );
 }
@@ -46,15 +67,12 @@ export function FormSuccessScreen({ onBack, backLabel = 'Volver al portal' }) {
 export function FormGateScreen({ form, onStart, onImageClick }) {
   return (
     <div className="form-state form-state--gate">
-      {form.flyerUrl && (
-        <button
-          type="button"
-          className="form-flyer form-flyer--gate"
-          onClick={() => onImageClick?.(form.flyerUrl)}
-        >
-          <img src={form.flyerUrl} alt={`Flyer de ${form.title}`} />
-        </button>
-      )}
+      <FormFlyerImage
+        src={form.flyerUrl}
+        alt={`Flyer de ${form.title}`}
+        onClick={onImageClick}
+        variant="gate"
+      />
 
       <span className="form-badge">Formulario activo</span>
       <h2>{form.title}</h2>
@@ -67,14 +85,15 @@ export function FormGateScreen({ form, onStart, onImageClick }) {
   );
 }
 
-function FormHeader({ form, questionCount }) {
+function FormHeader({ form, questionCount, onImageClick }) {
   return (
     <header className="form-header">
-      {form.flyerUrl && (
-        <div className="form-flyer">
-          <img src={form.flyerUrl} alt={`Flyer de ${form.title}`} />
-        </div>
-      )}
+      <FormFlyerImage
+        src={form.flyerUrl}
+        alt={`Flyer de ${form.title}`}
+        onClick={onImageClick}
+        variant="header"
+      />
 
       <div className="form-header__content">
         <div className="form-header__title-row">
@@ -227,7 +246,13 @@ export default function FormView({
   return (
     <>
       <div className="form-view">
-        {showHeader && <FormHeader form={formForHeader} questionCount={visibleQuestions.length} />}
+        {showHeader && (
+          <FormHeader
+            form={formForHeader}
+            questionCount={visibleQuestions.length}
+            onImageClick={onLightboxChange}
+          />
+        )}
 
         <form className="form-view__body" onSubmit={onSubmit}>
           {isWizard && (
@@ -284,7 +309,11 @@ export default function FormView({
         </form>
       </div>
 
-      <FormLightbox imageUrl={lightboxImage} onClose={() => onLightboxChange?.(null)} />
+      <FormLightbox
+        imageUrl={lightboxImage}
+        onClose={() => onLightboxChange?.(null)}
+        title={form.title ? `Flyer — ${form.title}` : 'Flyer'}
+      />
     </>
   );
 }

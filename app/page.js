@@ -6,7 +6,7 @@ import Navbar from '../components/Navbar';
 import EventCalendar from '../components/EventCalendar';
 import { storageService } from '../lib/storage';
 import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, isKitPickerValid } from '../lib/formLogic';
-import FormView, { FormSuccessScreen, FormGateScreen } from '../components/FormView';
+import FormView, { FormSuccessScreen, FormGateScreen, FormLightbox } from '../components/FormView';
 import { shouldShowMaintenanceBlock } from '../lib/portalRules';
 import MaintenanceBlock from '../components/MaintenanceBlock';
 import { branding } from '../lib/branding';
@@ -308,46 +308,53 @@ export default function HomePage() {
 
   if (settings.mode === 'single_form' && featuredForm) {
     return (
-      <div className="form-shell form-shell--centered">
-        {isSubmitted ? (
-          <div className="form-card">
-            <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
-            <FormSuccessScreen />
-          </div>
-        ) : showGateScreen ? (
-          <div className="form-card">
-            <div className="card-header-accent" />
-            <FormGateScreen
-              form={featuredForm}
-              onStart={() => setShowGateScreen(false)}
-              onImageClick={setLightboxImage}
-            />
-          </div>
-        ) : (
-          <div className="form-card" style={{ maxWidth: '720px' }}>
-            <div className="card-header-accent" />
-            <FormView
-              form={featuredForm}
-              visibleQuestions={visibleQuestions}
-              answers={answers}
-              layoutMode={featuredForm.layoutMode || 'all-at-once'}
-              isSubmitting={isSubmitting}
-              currentStep={currentStep}
-              onStepChange={setCurrentStep}
-              onSubmit={handleSubmit}
-              validateQuestion={validateQuestion}
-              onBack={() => setShowGateScreen(true)}
-              backLabel="Atrás"
-              previousLabel="Anterior"
-              questionHandlers={questionHandlers}
-              uploadingQuestionId={uploadingQuestionId}
-              fileErrors={fileErrors}
-              lightboxImage={lightboxImage}
-              onLightboxChange={setLightboxImage}
-            />
-          </div>
-        )}
-      </div>
+      <>
+        <div className="form-shell form-shell--centered">
+          {isSubmitted ? (
+            <div className="form-card">
+              <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
+              <FormSuccessScreen />
+            </div>
+          ) : showGateScreen ? (
+            <div className="form-card">
+              <div className="card-header-accent" />
+              <FormGateScreen
+                form={featuredForm}
+                onStart={() => setShowGateScreen(false)}
+                onImageClick={setLightboxImage}
+              />
+            </div>
+          ) : (
+            <div className="form-card" style={{ maxWidth: '720px' }}>
+              <div className="card-header-accent" />
+              <FormView
+                form={featuredForm}
+                visibleQuestions={visibleQuestions}
+                answers={answers}
+                layoutMode={featuredForm.layoutMode || 'all-at-once'}
+                isSubmitting={isSubmitting}
+                currentStep={currentStep}
+                onStepChange={setCurrentStep}
+                onSubmit={handleSubmit}
+                validateQuestion={validateQuestion}
+                onBack={() => setShowGateScreen(true)}
+                backLabel="Atrás"
+                previousLabel="Anterior"
+                questionHandlers={questionHandlers}
+                uploadingQuestionId={uploadingQuestionId}
+                fileErrors={fileErrors}
+                lightboxImage={lightboxImage}
+                onLightboxChange={setLightboxImage}
+              />
+            </div>
+          )}
+        </div>
+        <FormLightbox
+          imageUrl={lightboxImage}
+          onClose={() => setLightboxImage(null)}
+          title={`Flyer — ${featuredForm.title}`}
+        />
+      </>
     );
   }
 
