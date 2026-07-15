@@ -7,10 +7,14 @@ jest.mock('lucide-react', () => ({
   Download: () => <div data-testid="icon-download" />,
   Trash2: () => <div data-testid="icon-trash" />,
   Calendar: () => <div data-testid="icon-calendar" />,
-  User: () => <div data-testid="icon-user" />,
-  Eye: () => <div data-testid="icon-eye" />,
   BarChart3: () => <div data-testid="icon-barchart" />,
-  AlertCircle: () => <div data-testid="icon-alert" />
+  AlertCircle: () => <div data-testid="icon-alert" />,
+  Search: () => <div data-testid="icon-search" />,
+  List: () => <div data-testid="icon-list" />,
+  PieChart: () => <div data-testid="icon-piechart" />,
+  Clock: () => <div data-testid="icon-clock" />,
+  Users: () => <div data-testid="icon-users" />,
+  Shield: () => <div data-testid="icon-shield" />,
 }));
 
 // Mock storageService to avoid database call crashes during render/test

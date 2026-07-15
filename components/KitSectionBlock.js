@@ -38,27 +38,33 @@ export default function KitSectionBlock({
   const isSharedArticle = !!section.sharedMaxGroup;
   const showColors = !isSharedArticle || articleQty > 0;
   const articleLabel = section.label.toLowerCase();
+  const showHeaderLabels = section.showSectionHeader !== false;
+  const needsHeaderRow = showHeaderLabels || (isSharedArticle && onArticleQtyChange);
 
-  const header = (
-    <div className={`kit-section-header${isSharedArticle ? ' kit-section-header--shared' : ''}`}>
-      <div>
-        <span className="kit-section-title">{section.label}</span>
-        <div className="kit-section-subtitle">
-          {isSharedArticle
-            ? `Indica cuántos ${articleLabel} quieres, luego asigna colores`
-            : `Colores de ${articleLabel}`}
+  const header = needsHeaderRow ? (
+    <div className={`kit-section-header${isSharedArticle ? ' kit-section-header--shared' : ''}${!showHeaderLabels ? ' kit-section-header--minimal' : ''}`}>
+      {showHeaderLabels ? (
+        <div>
+          <span className="kit-section-title">{section.label}</span>
+          <div className="kit-section-subtitle">
+            {isSharedArticle
+              ? `Indica cuántos ${articleLabel} quieres, luego asigna colores`
+              : `Colores de ${articleLabel}`}
+          </div>
+          {showSectionTotal && maxTotal !== null && (
+            <div className={`kit-section-meta${currentTotal >= maxTotal ? ' kit-section-meta--limit' : ''}`}>
+              Asignados {currentTotal} de {maxTotal}
+            </div>
+          )}
+          {isSharedArticle && articleQty > 0 && (
+            <div className={`kit-section-meta${currentTotal >= articleQty ? ' kit-section-meta--done' : ''}`}>
+              Colores asignados {currentTotal} de {articleQty}
+            </div>
+          )}
         </div>
-        {showSectionTotal && maxTotal !== null && (
-          <div className={`kit-section-meta${currentTotal >= maxTotal ? ' kit-section-meta--limit' : ''}`}>
-            Asignados {currentTotal} de {maxTotal}
-          </div>
-        )}
-        {isSharedArticle && articleQty > 0 && (
-          <div className={`kit-section-meta${currentTotal >= articleQty ? ' kit-section-meta--done' : ''}`}>
-            Colores asignados {currentTotal} de {articleQty}
-          </div>
-        )}
-      </div>
+      ) : (
+        <span className="kit-section-title kit-section-title--hidden">{section.label}</span>
+      )}
       {isSharedArticle && onArticleQtyChange && (
         <NumberStepperControl
           value={articleQty}
@@ -70,7 +76,7 @@ export default function KitSectionBlock({
         />
       )}
     </div>
-  );
+  ) : null;
 
   const colorsList = (
     <div className={`kit-colors-list${variant === 'inline' ? ' kit-colors-list--inline' : ''}`}>

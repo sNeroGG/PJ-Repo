@@ -39,6 +39,35 @@ const QUESTION_TYPE_HINTS = {
   number: 'Para cantidad simple. Activa −/+ si quieres botones en lugar de escribir el número.',
 };
 
+function KitSectionHeaderToggle({ checked, onChange }) {
+  return (
+    <label style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '8px',
+      fontSize: '0.76rem',
+      color: 'var(--text-muted)',
+      cursor: 'pointer',
+      marginBottom: '8px',
+      lineHeight: 1.4,
+    }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ marginTop: '2px' }}
+      />
+      <span>
+        Mostrar encabezado del artículo
+        <span style={{ display: 'block', fontSize: '0.7rem', fontStyle: 'italic' }}>
+          Ej. &quot;Camiseta 2026&quot;, &quot;Colores de camiseta 2026&quot;, &quot;Asignados 0 de 1&quot;
+        </span>
+      </span>
+    </label>
+  );
+}
+
 export default function AdminForms({ forms, onRefreshForms }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newFormTitle, setNewFormTitle] = useState('');
@@ -196,6 +225,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
     if (section.sharedGroup) {
       built.sharedMaxGroup = section.sharedGroup;
     }
+    if (section.showSectionHeader === false) {
+      built.showSectionHeader = false;
+    }
 
     return built;
   });
@@ -296,6 +328,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
         options: (section.optionsStr || '').split(',').map((opt) => opt.trim()).filter(Boolean),
         sizeOptions: (section.sizeOptionsStr || '').split(',').map((opt) => opt.trim()).filter(Boolean),
         ...(section.sharedGroup ? { sharedMaxGroup: section.sharedGroup } : {}),
+        ...(section.showSectionHeader === false ? { showSectionHeader: false } : {}),
       }));
 
       const sharedMaxGroups = {};
@@ -460,6 +493,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
           maxFromOption: section.maxTotalFrom?.optionKey || '',
           maxFixed: section.maxFixed ?? '',
           sharedGroup: section.sharedMaxGroup || '',
+          showSectionHeader: section.showSectionHeader !== false,
         }))
         : DEFAULT_KIT_SECTIONS
     );
@@ -480,6 +514,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                 optionsStr: (section.options || []).join(', '),
                 sizeOptionsStr: (section.sizeOptions || []).join(', '),
                 sharedGroup: section.sharedMaxGroup || '',
+                showSectionHeader: section.showSectionHeader !== false,
               })),
             },
           ])
@@ -971,6 +1006,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
                 }}
               />
             </div>
+            <KitSectionHeaderToggle
+              checked={section.showSectionHeader !== false}
+              onChange={(checked) => {
+                const updated = [...tempKitSections];
+                updated[index] = {
+                  ...updated[index],
+                  showSectionHeader: checked,
+                };
+                setTempKitSections(updated);
+              }}
+            />
             <div className="form-group" style={{ marginBottom: '8px' }}>
               <label className="form-label" style={{ fontSize: '0.78rem' }}>
                 Colores exclusivos de {section.label || 'este artículo'} (separados por comas)
@@ -1267,6 +1313,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           }}
                         />
                       </div>
+                      <KitSectionHeaderToggle
+                        checked={section.showSectionHeader !== false}
+                        onChange={(checked) => {
+                          const sections = [...(config.sections || [])];
+                          sections[sectionIndex] = {
+                            ...sections[sectionIndex],
+                            showSectionHeader: checked,
+                          };
+                          setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                        }}
+                      />
                       <input
                         type="text"
                         className="input-text"
