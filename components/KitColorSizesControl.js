@@ -92,6 +92,7 @@ function SectionBlock({
                 <NumberStepperControl
                   value={colorQty}
                   size="sm"
+                  variant="minimal"
                   min={0}
                   onChange={(newQty) => onKitColorSizesChange(question.id, section.key, 'color', color, newQty)}
                   max={canIncreaseColor ? null : colorQty}
@@ -115,9 +116,9 @@ function SectionBlock({
                     Tallas: asignadas {assignedSizes} de {colorQty}
                   </div>
                   <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-                    gap: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
                   }}>
                     {section.sizeOptions.map((size) => {
                       const sizeQty = sectionAnswer.sizes[color]?.[size] || 0;
@@ -130,19 +131,18 @@ function SectionBlock({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            gap: '6px',
-                            padding: '6px 8px',
-                            borderRadius: '8px',
-                            border: '1px solid #edf2f7',
-                            backgroundColor: '#f8fafc',
+                            gap: '8px',
+                            padding: '4px 0',
+                            borderBottom: '1px solid #f1f5f9',
                           }}
                         >
-                          <span style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--primary)' }}>
+                          <span style={{ fontWeight: 500, fontSize: '0.82rem', color: '#475569' }}>
                             {size}
                           </span>
                           <NumberStepperControl
                             value={sizeQty}
-                            size="sm"
+                            size="xs"
+                            variant="minimal"
                             min={0}
                             onChange={(newQty) => onKitColorSizesChange(question.id, section.key, 'size', color, newQty, size)}
                             max={canIncreaseSize ? null : sizeQty}

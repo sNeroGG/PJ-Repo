@@ -35,27 +35,27 @@ function KitPickerSectionBlock({
   return (
     <div style={{
       borderRadius: '8px',
-      border: '1px solid #e2e8f0',
+      border: '1px solid #eef2f6',
       backgroundColor: '#fff',
       overflow: 'hidden',
     }}>
-      <div style={{ padding: '10px 12px', backgroundColor: section.sharedMaxGroup ? '#fffaf0' : '#f8fafc' }}>
-        <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.88rem' }}>
+      <div style={{ padding: '8px 10px', backgroundColor: section.sharedMaxGroup ? '#fffbeb' : '#f8fafc' }}>
+        <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.84rem' }}>
           {section.label}
         </div>
         {!section.sharedMaxGroup && maxTotal !== null && (
           <div style={{
-            fontSize: '0.72rem',
-            color: currentTotal >= maxTotal ? 'var(--accent-hover)' : 'var(--text-muted)',
-            marginTop: '4px',
-            fontWeight: 600,
+            fontSize: '0.68rem',
+            color: currentTotal >= maxTotal ? 'var(--accent-hover)' : '#94a3b8',
+            marginTop: '2px',
+            fontWeight: 500,
           }}>
-            Asignados {currentTotal} de {maxTotal}
+            {currentTotal}/{maxTotal}
           </div>
         )}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 12px 12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 10px 10px' }}>
         {section.options.map((colorName) => {
           const colorQty = sectionAnswer.colors[colorName] || 0;
           const canIncreaseColor = canSetKitPickerSectionColorQty(
@@ -70,18 +70,16 @@ function KitPickerSectionBlock({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '12px',
-                padding: '8px 10px',
-                borderRadius: '8px',
-                border: '1px solid #edf2f7',
-                backgroundColor: '#fafbfd',
+                gap: '10px',
+                padding: '6px 0',
               }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary)', fontSize: '0.86rem' }}>
-                  {section.label} {colorName}
+                <span style={{ fontWeight: 500, color: '#334155', fontSize: '0.84rem' }}>
+                  {colorName}
                 </span>
                 <NumberStepperControl
                   value={colorQty}
                   size="sm"
+                  variant="minimal"
                   min={0}
                   onChange={(newQty) => onKitPickerChange({
                     questionId: question.id,
@@ -96,26 +94,16 @@ function KitPickerSectionBlock({
               </div>
 
               {colorQty > 0 && hasSizes && (
-                <div style={{
-                  marginTop: '8px',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: '1px dashed #dbeafe',
-                  backgroundColor: '#fff',
-                }}>
+                <div style={{ marginTop: '6px', paddingLeft: '8px' }}>
                   <div style={{
-                    fontSize: '0.72rem',
-                    color: assignedSizes >= colorQty ? 'var(--accent-hover)' : 'var(--text-muted)',
-                    marginBottom: '8px',
-                    fontWeight: 600,
+                    fontSize: '0.7rem',
+                    color: assignedSizes >= colorQty ? 'var(--accent-hover)' : '#94a3b8',
+                    marginBottom: '6px',
+                    fontWeight: 500,
                   }}>
-                    Tallas: {assignedSizes} de {colorQty}
+                    Tallas {assignedSizes}/{colorQty}
                   </div>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-                    gap: '6px',
-                  }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     {section.sizeOptions.map((sizeName) => {
                       const sizeQty = sectionAnswer.sizes[colorName]?.[sizeName] || 0;
                       const canIncreaseSize = canSetKitPickerSectionSizeQty(
@@ -129,19 +117,18 @@ function KitPickerSectionBlock({
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
-                            gap: '4px',
-                            padding: '5px 7px',
-                            borderRadius: '6px',
-                            border: '1px solid #edf2f7',
-                            backgroundColor: '#f8fafc',
+                            gap: '8px',
+                            padding: '4px 0',
+                            borderBottom: '1px solid #f1f5f9',
                           }}
                         >
-                          <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--primary)' }}>
+                          <span style={{ fontWeight: 500, fontSize: '0.8rem', color: '#475569' }}>
                             {sizeName}
                           </span>
                           <NumberStepperControl
                             value={sizeQty}
-                            size="sm"
+                            size="xs"
+                            variant="minimal"
                             min={0}
                             onChange={(newQty) => onKitPickerChange({
                               questionId: question.id,
@@ -290,24 +277,25 @@ export default function KitPickerControl({
             <div
               key={kitKey}
               style={{
-                padding: '12px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-color)',
-                backgroundColor: '#fafbfd',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid #eef2f6',
+                backgroundColor: '#fff',
               }}
             >
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '12px',
+                gap: '10px',
               }}>
-                <span style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.95rem' }}>
+                <span style={{ fontWeight: 600, color: '#334155', fontSize: '0.9rem' }}>
                   {kitKey}
                 </span>
                 <NumberStepperControl
                   value={qty}
                   size="sm"
+                  variant="minimal"
                   min={0}
                   onChange={(newQty) => onKitPickerChange({
                     questionId: question.id,

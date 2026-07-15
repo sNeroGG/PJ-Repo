@@ -35,9 +35,7 @@ const DEFAULT_KIT_SECTIONS = [
 ];
 
 const QUESTION_TYPE_HINTS = {
-  'kit-picker': 'Cada kit puede tener artículos distintos (Kit 1 solo cantidad, Kit 2 camisa, Kit 3 camisa + gorra/sombrero). La vista previa a la derecha muestra el resultado.',
-  'quantity-group': 'Varias opciones con cantidad −/+ cada una.',
-  'kit-color-sizes': 'Pregunta separada de colores y tallas. Úsala solo si NO configuraste colores/tallas dentro del selector de kits.',
+  'kit-picker': 'Cada kit puede tener artículos distintos. La vista previa a la derecha muestra el resultado.',
   number: 'Para cantidad simple. Activa −/+ si quieres botones en lugar de escribir el número.',
 };
 
@@ -495,19 +493,17 @@ export default function AdminForms({ forms, onRefreshForms }) {
     handleCancelEditQuestion();
     setTempShowWhenParentId(parentQuestion.id);
     setTempShowWhenValue(optionValue);
-    setTempLabel(isOptionQuantityType(parentQuestion.type) ? `Configuración de ${optionValue}` : '');
+    setTempLabel('');
     setTempDescription('');
-    setTempType(isOptionQuantityType(parentQuestion.type) ? 'kit-color-sizes' : 'text');
-    setTempRequired(isOptionQuantityType(parentQuestion.type));
+    setTempType('text');
+    setTempRequired(false);
     setTempAllowFile(false);
     setTempFileRequired(false);
     setTempImageUrl('');
-    setTempOptionsStr(isOptionQuantityType(parentQuestion.type) ? 'Crema, Blanco' : '');
+    setTempOptionsStr('');
     setTempSizeOptionsStr('S, M, L, XL');
-    if (isOptionQuantityType(parentQuestion.type)) {
-      setTempMaxSelectionsFromId(parentQuestion.id);
-      setTempMaxSelectionsFromOption(optionValue);
-    }
+    setTempMaxSelectionsFromId('');
+    setTempMaxSelectionsFromOption('');
     document.getElementById('add-question-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
@@ -529,11 +525,15 @@ export default function AdminForms({ forms, onRefreshForms }) {
         <option value="select">Lista de selección única</option>
         <option value="checkbox-group">Casillas de verificación (opción múltiple)</option>
       </optgroup>
-      <optgroup label="Kits y cantidades">
+      <optgroup label="Kits">
         <option value="kit-picker">Selector de kits (−/+ por kit)</option>
-        <option value="quantity-group">Cantidades por opción (−/+)</option>
-        <option value="kit-color-sizes">Colores y tallas (configurar kit)</option>
       </optgroup>
+      {(value === 'quantity-group' || value === 'kit-color-sizes') && (
+        <optgroup label="Tipos anteriores (solo edición)">
+          {value === 'quantity-group' && <option value="quantity-group">Cantidades por opción</option>}
+          {value === 'kit-color-sizes' && <option value="kit-color-sizes">Colores y tallas (separado)</option>}
+        </optgroup>
+      )}
     </select>
   );
 
@@ -810,7 +810,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   };
 
   const renderMaxSelectionsField = (questionIndex) => {
-    if (!['checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType)) return null;
+    if (!['checkbox-group', 'quantity-group', 'kit-color-sizes'].includes(tempType)) return null;
     if (tempType === 'kit-color-sizes' && tempKitUseSections) return null;
 
     const limitCandidates = getLimitSourceCandidates(newQuestions, questionIndex)
@@ -1331,6 +1331,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
   };
 
   const renderConditionalFields = (questionIndex, fieldIdPrefix) => {
+    if (tempType === 'kit-picker') return null;
+
     const parentCandidates = getParentQuestionsWithOptions(newQuestions, questionIndex);
     const selectedParent = newQuestions.find((q) => q.id === tempShowWhenParentId);
     const availableOptions = selectedParent?.options || [];
@@ -1558,10 +1560,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         ))}
                       </div>
                     )}
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker'].includes(q.type)
-                      && (q.options || []).length > 0
-                      && !isEditing
-                      && !(q.type === 'kit-picker' && kitPickerHasInlineConfig(q)) && (
+                    {['select', 'checkbox-group'].includes(q.type) && (q.options || []).length > 0 && !isEditing && (
                       <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Preguntas condicionales:</span>
                         {(q.options || []).map((opt) => (
@@ -1571,12 +1570,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
                             onClick={() => handleAddConditionalFromOption(q, opt)}
                             className="btn btn-secondary btn-sm"
                             style={{ fontSize: '0.68rem', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                            title={isOptionQuantityType(q.type)
-                              ? `Crear pregunta que aparece cuando "${opt}" tenga cantidad > 0`
-                              : `Crear pregunta que aparece solo si se elige "${opt}"`}
+                            title={`Crear pregunta que aparece solo si se elige "${opt}"`}
                           >
                             <Plus size={10} /> &quot;{opt}&quot;
-                            {isOptionQuantityType(q.type) && <span style={{ opacity: 0.7 }}>(qty&gt;0)</span>}
                           </button>
                         ))}
                       </div>
@@ -1807,7 +1803,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       )}
                     </div>
 
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
+                    {['select', 'checkbox-group', 'kit-picker'].includes(tempType) && (
                       <div className="form-group" style={{ marginBottom: '10px' }}>
                         <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>
                           Opciones (separadas por comas)
@@ -2446,7 +2442,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       )}
                     </div>
 
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker', 'kit-color-sizes'].includes(editingQuestionId ? '' : tempType) && !(tempType === 'kit-color-sizes' && tempKitUseSections) && (
+                    {!editingQuestionId && (['select', 'checkbox-group', 'kit-picker'].includes(tempType)
+                      || (tempType === 'kit-color-sizes' && !tempKitUseSections)) && (
                       <div className="form-group" style={{ marginBottom: '12px' }}>
                         <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>
                           Opciones (separadas por comas)
