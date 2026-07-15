@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FileText, Download, Trash2, Calendar, User, Eye, BarChart3, AlertCircle } from 'lucide-react';
 import { storageService } from '../lib/storage';
+import { formatAnswerForDisplay } from '../lib/formLogic';
 
 export default function AdminResponses({ forms, responses, onRefreshResponses }) {
   const [selectedFormId, setSelectedFormId] = useState(forms[0]?.id || 'datos-personales');
@@ -109,17 +110,7 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
         // Preguntas y respuestas
         selectedForm.questions.forEach(q => {
           const answer = resp.answers[q.id];
-          let answerDisplay = 'Sin responder';
-          
-          if (answer !== undefined && answer !== null) {
-            if (Array.isArray(answer)) {
-              answerDisplay = answer.join(', ');
-            } else if (typeof answer === 'boolean') {
-              answerDisplay = answer ? 'Sí' : 'No';
-            } else {
-              answerDisplay = answer.toString();
-            }
-          }
+          let answerDisplay = formatAnswerForDisplay(q, answer);
 
           const fileUrl = resp.answers[q.id + '_file'];
           if (fileUrl) {
@@ -274,17 +265,7 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
               const answer = printResponse.answers[q.id];
               const fileUrl = printResponse.answers[q.id + '_file'];
               const fileName = printResponse.answers[q.id + '_fileName'] || 'archivo_adjunto';
-              let answerDisplay = 'Sin responder';
-              
-              if (answer !== undefined && answer !== null) {
-                if (Array.isArray(answer)) {
-                  answerDisplay = answer.join(', ');
-                } else if (typeof answer === 'boolean') {
-                  answerDisplay = answer ? 'Sí' : 'No';
-                } else {
-                  answerDisplay = answer.toString();
-                }
-              }
+              let answerDisplay = formatAnswerForDisplay(q, answer);
 
               return (
                 <div key={q.id} className="pdf-question-block">
@@ -530,7 +511,9 @@ export default function AdminResponses({ forms, responses, onRefreshResponses })
                     let displayVal = <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Sin responder</span>;
 
                     if (answer !== undefined && answer !== null) {
-                      if (Array.isArray(answer)) {
+                      if (q.type === 'quantity-group' || q.type === 'kit-color-sizes') {
+                        displayVal = <span style={{ whiteSpace: 'pre-wrap' }}>{formatAnswerForDisplay(q, answer)}</span>;
+                      } else if (Array.isArray(answer)) {
                         displayVal = (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
                             {answer.map(val => (

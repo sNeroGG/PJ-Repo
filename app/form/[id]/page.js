@@ -4,7 +4,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
 import { storageService } from '../../../lib/storage';
-import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit } from '../../../lib/formLogic';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, isCheckboxOptionDisabled, getMaxSelectionsForQuestion, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer } from '../../../lib/formLogic';
+import NumberStepperControl from '../../../components/NumberStepperControl';
+import QuantityGroupControl from '../../../components/QuantityGroupControl';
+import KitColorSizesControl from '../../../components/KitColorSizesControl';
 import { shouldHideNavbarOnFormLink } from '../../../lib/portalRules';
 import { ClipboardList, CheckCircle2, AlertCircle, ArrowLeft, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -40,6 +43,10 @@ export default function FillFormPage() {
           f.questions.forEach(q => {
             if (q.type === 'checkbox-group') {
               initialAnswers[q.id] = [];
+            } else if (q.type === 'quantity-group') {
+              initialAnswers[q.id] = {};
+            } else if (q.type === 'kit-color-sizes') {
+              initialAnswers[q.id] = createEmptyKitAnswer(q);
             } else {
               initialAnswers[q.id] = '';
             }
@@ -120,18 +127,54 @@ export default function FillFormPage() {
 
   // Manejar cambios en campos normales
   const handleInputChange = (questionId, value) => {
-    const newAnswers = clearHiddenQuestionAnswers(form.questions, {
+    const cleared = clearHiddenQuestionAnswers(form.questions, {
       ...answers,
       [questionId]: value
     });
+    const newAnswers = enforceAnswerLimits(form.questions, cleared);
     setAnswers(newAnswers);
   };
 
-  // Manejar cambios en campos checkbox (selección múltiple)
+  const handleKitColorSizesChange = (questionId, sectionKey, kind, color, value, size = null) => {
+    const question = form.questions.find((q) => q.id === questionId);
+    if (!question) return;
+
+    const changed = applyKitColorSizesChange(question, answers, form.questions, {
+      questionId,
+      sectionKey,
+      kind,
+      color,
+      value,
+      size,
+    });
+    const cleared = clearHiddenQuestionAnswers(form.questions, changed);
+    const newAnswers = enforceAnswerLimits(form.questions, cleared);
+    setAnswers(newAnswers);
+  };
+
+  const handleQuantityOptionChange = (questionId, option, newQty) => {
+    const question = form.questions.find((q) => q.id === questionId);
+    if (!question || !canSetQuantityOption(question, option, newQty, answers, form.questions)) {
+      return;
+    }
+
+    const current = { ...(answers[questionId] || {}) };
+    const cleared = clearHiddenQuestionAnswers(form.questions, {
+      ...answers,
+      [questionId]: { ...current, [option]: newQty },
+    });
+    const newAnswers = enforceAnswerLimits(form.questions, cleared);
+    setAnswers(newAnswers);
+  };
+
   const handleCheckboxChange = (questionId, option, checked) => {
+    const question = form.questions.find((q) => q.id === questionId);
     const currentValues = [...(answers[questionId] || [])];
-    
+
     if (checked) {
+      if (!question || !canAddCheckboxOption(question, answers, form.questions)) {
+        return;
+      }
       if (!currentValues.includes(option)) {
         currentValues.push(option);
       }
@@ -142,10 +185,11 @@ export default function FillFormPage() {
       }
     }
 
-    const newAnswers = clearHiddenQuestionAnswers(form.questions, {
+    const cleared = clearHiddenQuestionAnswers(form.questions, {
       ...answers,
       [questionId]: currentValues
     });
+    const newAnswers = enforceAnswerLimits(form.questions, cleared);
     setAnswers(newAnswers);
   };
 
@@ -225,6 +269,10 @@ export default function FillFormPage() {
       const ans = answers[q.id];
       if (q.type === 'checkbox-group') {
         if (!ans || ans.length === 0) return false;
+      } else if (q.type === 'quantity-group') {
+        if (getQuantityGroupTotal(ans) === 0) return false;
+      } else if (q.type === 'kit-color-sizes') {
+        if (!isKitColorSizesValid(q, ans)) return false;
       } else {
         if (ans === undefined || ans === null || ans.toString().trim() === '') return false;
       }
@@ -323,7 +371,15 @@ export default function FillFormPage() {
         )}
 
         {/* Número */}
-        {q.type === 'number' && (
+        {q.type === 'number' && q.useStepper && (
+          <NumberStepperControl
+            value={value || 0}
+            min={0}
+            onChange={(next) => handleInputChange(q.id, String(next))}
+          />
+        )}
+
+        {q.type === 'number' && !q.useStepper && (
           <input 
             type="number" 
             className="input-text" 
@@ -373,22 +429,69 @@ export default function FillFormPage() {
         )}
 
         {/* Casillas de Verificación (Checkbox Group) */}
-        {q.type === 'checkbox-group' && (
-          <div className="checkbox-group">
-            {q.options.map(opt => {
-              const isChecked = (value || []).includes(opt);
-              return (
-                <label key={opt} className="checkbox-item">
-                  <input 
-                    type="checkbox" 
-                    checked={isChecked} 
-                    onChange={e => handleCheckboxChange(q.id, opt, e.target.checked)}
-                  />
-                  <span>{opt}</span>
-                </label>
-              );
-            })}
-          </div>
+        {q.type === 'checkbox-group' && (() => {
+          const selected = value || [];
+          const maxSelections = form
+            ? getMaxSelectionsForQuestion(q, answers, form.questions)
+            : null;
+
+          return (
+            <div>
+              {maxSelections !== null && (
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: selected.length >= maxSelections ? 'var(--danger)' : 'var(--text-muted)',
+                  marginBottom: '8px',
+                  fontWeight: 600
+                }}>
+                  Seleccionados {selected.length} de {maxSelections}
+                  {maxSelections === 0 && ' — indica primero la cantidad de kits'}
+                </div>
+              )}
+              <div className="checkbox-group">
+                {q.options.map(opt => {
+                  const isChecked = selected.includes(opt);
+                  const isDisabled = form
+                    ? isCheckboxOptionDisabled(q, opt, answers, form.questions)
+                    : false;
+
+                  return (
+                    <label
+                      key={opt}
+                      className="checkbox-item"
+                      style={{ opacity: isDisabled ? 0.5 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        disabled={isDisabled}
+                        onChange={e => handleCheckboxChange(q.id, opt, e.target.checked)}
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {q.type === 'quantity-group' && form && (
+          <QuantityGroupControl
+            question={q}
+            answers={answers}
+            questions={form.questions}
+            onQuantityChange={handleQuantityOptionChange}
+          />
+        )}
+
+        {q.type === 'kit-color-sizes' && form && (
+          <KitColorSizesControl
+            question={q}
+            answers={answers}
+            questions={form.questions}
+            onKitColorSizesChange={handleKitColorSizesChange}
+          />
         )}
 
         {/* Adjuntar Archivo Opcional/Obligatorio */}
