@@ -3,8 +3,30 @@
 import { useState } from 'react';
 import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload, GitBranch } from 'lucide-react';
 import { storageService } from '../lib/storage';
-import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType, getQuestionTypeLabel, enrichLimitFromShowWhen, normalizeQuestionsConfig, getQuestionConfigWarnings, kitPickerHasInlineConfig } from '../lib/formLogic';
+import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType, getQuestionTypeLabel, enrichLimitFromShowWhen, normalizeQuestionsConfig, getQuestionConfigWarnings, kitPickerHasInlineConfig, buildKitPickerPreviewQuestion } from '../lib/formLogic';
+import KitPickerQuestionPreview from './KitPickerQuestionPreview';
 import ImageCropperModal from './ImageCropperModal';
+
+const KIT_SECTION_CAMISA = { key: 'camisa', label: 'Camisa', optionsStr: 'Crema, Blanco', sizeOptionsStr: 'S, M, L, XL', sharedGroup: '' };
+const KIT_SECTION_GORRA = { key: 'gorra', label: 'Gorra', optionsStr: 'Negro, Azul marino, Rojo', sizeOptionsStr: '', sharedGroup: 'gorra-sombrero' };
+const KIT_SECTION_SOMBRERO = { key: 'sombrero', label: 'Sombrero', optionsStr: 'Beige, Caqui, Natural', sizeOptionsStr: '', sharedGroup: 'gorra-sombrero' };
+
+const getDefaultKitOptionConfig = (index) => {
+  if (index === 0) {
+    return { enabled: false, sections: [] };
+  }
+  if (index === 1) {
+    return { enabled: true, sections: [{ ...KIT_SECTION_CAMISA }] };
+  }
+  return {
+    enabled: true,
+    sections: [
+      { ...KIT_SECTION_CAMISA },
+      { ...KIT_SECTION_GORRA },
+      { ...KIT_SECTION_SOMBRERO },
+    ],
+  };
+};
 
 const DEFAULT_KIT_SECTIONS = [
   { key: 'camisas', label: 'Camisas', optionsStr: 'Crema, Blanco, Negro', sizeOptionsStr: 'S, M, L, XL', maxFromId: '', maxFromOption: '', maxFixed: '', sharedGroup: '' },
@@ -13,7 +35,7 @@ const DEFAULT_KIT_SECTIONS = [
 ];
 
 const QUESTION_TYPE_HINTS = {
-  'kit-picker': 'El usuario elige cuántos kits con −/+. Si activas colores y tallas, la configuración se abre debajo de cada kit en la misma pregunta.',
+  'kit-picker': 'Cada kit puede tener artículos distintos (Kit 1 solo cantidad, Kit 2 camisa, Kit 3 camisa + gorra/sombrero). La vista previa a la derecha muestra el resultado.',
   'quantity-group': 'Varias opciones con cantidad −/+ cada una.',
   'kit-color-sizes': 'Pregunta separada de colores y tallas. Úsala solo si NO configuraste colores/tallas dentro del selector de kits.',
   number: 'Para cantidad simple. Activa −/+ si quieres botones en lugar de escribir el número.',
@@ -58,10 +80,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [tempKitSections, setTempKitSections] = useState(DEFAULT_KIT_SECTIONS);
   const [tempSharedGroupMaxFromId, setTempSharedGroupMaxFromId] = useState('');
   const [tempSharedGroupMaxFromOption, setTempSharedGroupMaxFromOption] = useState('');
-  const [tempKitInlineEnabled, setTempKitInlineEnabled] = useState(true);
-  const [tempKitInlineItemLabel, setTempKitInlineItemLabel] = useState('Camisa');
-  const [tempKitInlineColorsStr, setTempKitInlineColorsStr] = useState('Crema, Blanco');
-  const [tempKitInlineSizeOptionsStr, setTempKitInlineSizeOptionsStr] = useState('S, M, L, XL');
+  const [tempKitOptionConfigs, setTempKitOptionConfigs] = useState({});
 
   const [copiedFormId, setCopiedFormId] = useState(null);
 
@@ -147,10 +166,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempKitSections(DEFAULT_KIT_SECTIONS);
     setTempSharedGroupMaxFromId('');
     setTempSharedGroupMaxFromOption('');
-    setTempKitInlineEnabled(true);
-    setTempKitInlineItemLabel('Camisa');
-    setTempKitInlineColorsStr('Crema, Blanco');
-    setTempKitInlineSizeOptionsStr('S, M, L, XL');
+    setTempKitOptionConfigs({});
   };
 
   const buildKitSectionsFromTemp = () => tempKitSections.map((section, index) => {
@@ -256,32 +272,72 @@ export default function AdminForms({ forms, onRefreshForms }) {
     return questionObj;
   };
 
+  const syncKitOptionConfigsFromOptions = (optionsStr, currentConfigs = {}) => {
+    const kits = optionsStr.split(',').map((opt) => opt.trim()).filter(Boolean);
+    const next = {};
+    kits.forEach((kitName, index) => {
+      next[kitName] = currentConfigs[kitName] || getDefaultKitOptionConfig(index);
+    });
+    return next;
+  };
+
+  const buildKitOptionConfigsFromTemp = () => {
+    const kits = tempOptionsStr.split(',').map((opt) => opt.trim()).filter(Boolean);
+    const configs = {};
+
+    kits.forEach((kitName) => {
+      const temp = tempKitOptionConfigs[kitName] || getDefaultKitOptionConfig(0);
+      if (!temp.enabled) {
+        configs[kitName] = { enabled: false, sections: [], sharedMaxGroups: {} };
+        return;
+      }
+
+      const sections = (temp.sections || []).map((section, index) => ({
+        key: section.key || `section-${index}`,
+        label: section.label || `Artículo ${index + 1}`,
+        options: (section.optionsStr || '').split(',').map((opt) => opt.trim()).filter(Boolean),
+        sizeOptions: (section.sizeOptionsStr || '').split(',').map((opt) => opt.trim()).filter(Boolean),
+        ...(section.sharedGroup ? { sharedMaxGroup: section.sharedGroup } : {}),
+      }));
+
+      const sharedMaxGroups = {};
+      [...new Set((temp.sections || []).map((section) => section.sharedGroup).filter(Boolean))].forEach((groupKey) => {
+        const labels = (temp.sections || [])
+          .filter((section) => section.sharedGroup === groupKey)
+          .map((section) => section.label)
+          .join(' o ');
+        sharedMaxGroups[groupKey] = { label: labels || 'Grupo compartido' };
+      });
+
+      configs[kitName] = { enabled: true, sections, sharedMaxGroups };
+    });
+
+    return configs;
+  };
+
+  const buildPreviewKitPickerQuestion = () => buildKitPickerPreviewQuestion({
+    id: editingQuestionId || 'preview-new',
+    label: tempLabel,
+    description: tempDescription,
+    imageUrl: tempImageUrl,
+    options: tempOptionsStr.split(',').map((opt) => opt.trim()).filter(Boolean),
+    kitOptionConfigs: buildKitOptionConfigsFromTemp(),
+  });
+
   const applyKitPickerConfig = (questionObj) => {
     if (tempType !== 'kit-picker') {
       delete questionObj.kitInlineConfig;
+      delete questionObj.kitOptionConfigs;
       return questionObj;
     }
 
-    if (!tempKitInlineEnabled) {
-      delete questionObj.kitInlineConfig;
-      return questionObj;
+    const kitOptionConfigs = buildKitOptionConfigsFromTemp();
+    if (Object.values(kitOptionConfigs).some((config) => config.enabled)) {
+      questionObj.kitOptionConfigs = kitOptionConfigs;
+    } else {
+      delete questionObj.kitOptionConfigs;
     }
-
-    const colors = tempKitInlineColorsStr
-      .split(',')
-      .map((opt) => opt.trim())
-      .filter(Boolean);
-    const sizeOptions = tempKitInlineSizeOptionsStr
-      .split(',')
-      .map((opt) => opt.trim())
-      .filter(Boolean);
-
-    questionObj.kitInlineConfig = {
-      enabled: true,
-      itemLabel: tempKitInlineItemLabel.trim() || 'Camisa',
-      colors,
-      sizeOptions,
-    };
+    delete questionObj.kitInlineConfig;
     return questionObj;
   };
 
@@ -413,10 +469,25 @@ export default function AdminForms({ forms, onRefreshForms }) {
       || Object.entries(q.sharedMaxGroups || {})[0];
     setTempSharedGroupMaxFromId(sharedGroupEntry?.[1]?.maxTotalFrom?.questionId || '');
     setTempSharedGroupMaxFromOption(sharedGroupEntry?.[1]?.maxTotalFrom?.optionKey || '');
-    setTempKitInlineEnabled(!!(q.kitInlineConfig?.enabled ?? (q.type === 'kit-picker')));
-    setTempKitInlineItemLabel(q.kitInlineConfig?.itemLabel || 'Camisa');
-    setTempKitInlineColorsStr((q.kitInlineConfig?.colors || ['Crema', 'Blanco']).join(', '));
-    setTempKitInlineSizeOptionsStr((q.kitInlineConfig?.sizeOptions || ['S', 'M', 'L', 'XL']).join(', '));
+    setTempKitOptionConfigs(
+      q.kitOptionConfigs
+        ? Object.fromEntries(
+          Object.entries(q.kitOptionConfigs).map(([kitName, config]) => [
+            kitName,
+            {
+              enabled: !!config.enabled,
+              sections: (config.sections || []).map((section, index) => ({
+                key: section.key || `section-${index}`,
+                label: section.label || '',
+                optionsStr: (section.options || []).join(', '),
+                sizeOptionsStr: (section.sizeOptions || []).join(', '),
+                sharedGroup: section.sharedMaxGroup || '',
+              })),
+            },
+          ])
+        )
+        : syncKitOptionConfigsFromOptions((q.options || []).join(', '), {})
+    );
     setEditingQuestionId(q.id);
   };
 
@@ -497,11 +568,13 @@ export default function AdminForms({ forms, onRefreshForms }) {
           Kits: {(question.options || []).join(', ')}
           {kitPickerHasInlineConfig(question) && (
             <span>
-              {' '}· Debajo de cada kit: {question.kitInlineConfig.itemLabel || 'Camisa'}{' '}
-              {(question.kitInlineConfig.colors || []).join(', ')}
-              {(question.kitInlineConfig.sizeOptions || []).length > 0 && (
-                <span> · Tallas: {(question.kitInlineConfig.sizeOptions || []).join(', ')}</span>
-              )}
+              {' '}· Configuración por kit:
+              {(question.options || []).map((kitName) => {
+                const config = question.kitOptionConfigs?.[kitName];
+                if (!config?.enabled) return ` ${kitName} (solo cantidad)`;
+                const articles = (config.sections || []).map((section) => section.label).join(' + ');
+                return ` ${kitName} (${articles})`;
+              }).join(',')}
             </span>
           )}
         </div>
@@ -1068,63 +1141,191 @@ export default function AdminForms({ forms, onRefreshForms }) {
     );
   };
 
-  const renderKitInlineConfigField = () => {
+  const renderKitOptionConfigsField = () => {
     if (tempType !== 'kit-picker') return null;
 
-    return (
-      <div style={{
-        marginBottom: '12px',
-        padding: '12px',
-        borderRadius: '8px',
-        border: '1px solid #bee3f8',
-        backgroundColor: '#f0f9ff',
-      }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
-          <input
-            type="checkbox"
-            checked={tempKitInlineEnabled}
-            onChange={(e) => setTempKitInlineEnabled(e.target.checked)}
-          />
-          Configurar colores y tallas debajo de cada kit (todo en una pregunta)
-        </label>
+    const kits = tempOptionsStr.split(',').map((opt) => opt.trim()).filter(Boolean);
+    if (kits.length === 0) {
+      return (
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Escribe primero los kits (Kit 1, Kit 2, Kit 3) para configurar cada uno.
+        </p>
+      );
+    }
 
-        {tempKitInlineEnabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.78rem' }}>Nombre del artículo</label>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="Camisa"
-                value={tempKitInlineItemLabel}
-                onChange={(e) => setTempKitInlineItemLabel(e.target.value)}
-              />
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)' }}>
+          Configuración por kit
+        </div>
+        {kits.map((kitName, kitIndex) => {
+          const config = tempKitOptionConfigs[kitName] || getDefaultKitOptionConfig(kitIndex);
+          return (
+            <div
+              key={kitName}
+              style={{
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #bee3f8',
+                backgroundColor: '#f8fcff',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <strong style={{ color: 'var(--primary)', fontSize: '0.88rem' }}>{kitName}</strong>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!config.enabled}
+                    onChange={(e) => {
+                      setTempKitOptionConfigs({
+                        ...tempKitOptionConfigs,
+                        [kitName]: {
+                          ...(config || getDefaultKitOptionConfig(kitIndex)),
+                          enabled: e.target.checked,
+                          sections: e.target.checked
+                            ? (config.sections?.length ? config.sections : getDefaultKitOptionConfig(kitIndex).sections)
+                            : [],
+                        },
+                      });
+                    }}
+                  />
+                  Incluye artículos para configurar
+                </label>
+              </div>
+
+              {!config.enabled && (
+                <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', margin: 0, fontStyle: 'italic' }}>
+                  Solo cantidad −/+ (sin camisa, gorra, etc.)
+                </p>
+              )}
+
+              {config.enabled && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.68rem' }}
+                      onClick={() => setTempKitOptionConfigs({
+                        ...tempKitOptionConfigs,
+                        [kitName]: { enabled: true, sections: [{ ...KIT_SECTION_CAMISA }] },
+                      })}
+                    >
+                      Solo camisa
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.68rem' }}
+                      onClick={() => setTempKitOptionConfigs({
+                        ...tempKitOptionConfigs,
+                        [kitName]: {
+                          enabled: true,
+                          sections: [
+                            { ...KIT_SECTION_CAMISA },
+                            { ...KIT_SECTION_GORRA },
+                            { ...KIT_SECTION_SOMBRERO },
+                          ],
+                        },
+                      })}
+                    >
+                      Camisa + gorra/sombrero
+                    </button>
+                  </div>
+
+                  {(config.sections || []).map((section, sectionIndex) => (
+                    <div
+                      key={`${kitName}-${section.key}-${sectionIndex}`}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: '1px solid #dbeafe',
+                        backgroundColor: '#fff',
+                      }}
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                        <input
+                          type="text"
+                          className="input-text"
+                          placeholder="Artículo (ej. Camisa)"
+                          value={section.label}
+                          onChange={(e) => {
+                            const sections = [...(config.sections || [])];
+                            sections[sectionIndex] = { ...sections[sectionIndex], label: e.target.value };
+                            setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                          }}
+                        />
+                        <input
+                          type="text"
+                          className="input-text"
+                          placeholder="Clave (ej. camisa)"
+                          value={section.key}
+                          onChange={(e) => {
+                            const sections = [...(config.sections || [])];
+                            sections[sectionIndex] = { ...sections[sectionIndex], key: e.target.value };
+                            setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                          }}
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        className="input-text"
+                        placeholder="Colores: Crema, Blanco"
+                        value={section.optionsStr}
+                        onChange={(e) => {
+                          const sections = [...(config.sections || [])];
+                          sections[sectionIndex] = { ...sections[sectionIndex], optionsStr: e.target.value };
+                          setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                        }}
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <input
+                        type="text"
+                        className="input-text"
+                        placeholder="Tallas: S, M, L, XL (vacío = sin tallas)"
+                        value={section.sizeOptionsStr}
+                        onChange={(e) => {
+                          const sections = [...(config.sections || [])];
+                          sections[sectionIndex] = { ...sections[sectionIndex], sizeOptionsStr: e.target.value };
+                          setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                        }}
+                        style={{ marginBottom: '8px' }}
+                      />
+                      <input
+                        type="text"
+                        className="input-text"
+                        placeholder="Grupo compartido (ej. gorra-sombrero)"
+                        value={section.sharedGroup}
+                        onChange={(e) => {
+                          const sections = [...(config.sections || [])];
+                          sections[sectionIndex] = { ...sections[sectionIndex], sharedGroup: e.target.value };
+                          setTempKitOptionConfigs({ ...tempKitOptionConfigs, [kitName]: { ...config, sections } });
+                        }}
+                      />
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setTempKitOptionConfigs({
+                      ...tempKitOptionConfigs,
+                      [kitName]: {
+                        ...config,
+                        sections: [
+                          ...(config.sections || []),
+                          { key: `articulo-${(config.sections || []).length + 1}`, label: '', optionsStr: '', sizeOptionsStr: '', sharedGroup: '' },
+                        ],
+                      },
+                    })}
+                  >
+                    + Agregar artículo
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.78rem' }}>Colores (separados por comas)</label>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="Crema, Blanco"
-                value={tempKitInlineColorsStr}
-                onChange={(e) => setTempKitInlineColorsStr(e.target.value)}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.78rem' }}>Tallas (separadas por comas)</label>
-              <input
-                type="text"
-                className="input-text"
-                placeholder="S, M, L, XL"
-                value={tempKitInlineSizeOptionsStr}
-                onChange={(e) => setTempKitInlineSizeOptionsStr(e.target.value)}
-              />
-            </div>
-            <p style={{ fontSize: '0.72rem', color: '#2b6cb0', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>
-              Si el usuario elige 1 Kit A, debajo verá Camisa Crema y Camisa Blanco. Al elegir un color, se abren sus tallas.
-            </p>
-          </div>
-        )}
+          );
+        })}
       </div>
     );
   };
@@ -1253,9 +1454,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
             }}>
               <strong style={{ color: '#276749' }}>Guía rápida — Kits</strong>
               <ol style={{ margin: '8px 0 0', paddingLeft: '18px', color: '#2f855a' }}>
-                <li>En el <strong>Selector de kits</strong>, activa <strong>colores y tallas debajo de cada kit</strong>.</li>
-                <li>Define kits (Kit 1, Kit 2…), colores (Crema, Blanco) y tallas (S, M, L, XL).</li>
-                <li>No necesitas preguntas condicionales separadas: todo se abre debajo del kit elegido.</li>
+                <li><strong>Kit 1</strong>: solo cantidad (sin artículos).</li>
+                <li><strong>Kit 2</strong>: camisa con colores y tallas.</li>
+                <li><strong>Kit 3</strong>: camisa + gorra/sombrero (suman la cantidad del kit).</li>
+                <li>Usa la <strong>vista previa</strong> a la derecha mientras configuras.</li>
               </ol>
             </div>
           )}
@@ -1309,7 +1511,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           Kit múltiple
                         </span>
                       )}
-                      {q.type === 'kit-picker' && q.kitInlineConfig?.enabled && (
+                      {q.type === 'kit-picker' && kitPickerHasInlineConfig(q) && (
                         <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', backgroundColor: '#e6fffa', color: '#234e52' }}>
                           Config. integrada
                         </span>
@@ -1359,7 +1561,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
                     {['select', 'checkbox-group', 'quantity-group', 'kit-picker'].includes(q.type)
                       && (q.options || []).length > 0
                       && !isEditing
-                      && !(q.type === 'kit-picker' && q.kitInlineConfig?.enabled) && (
+                      && !(q.type === 'kit-picker' && kitPickerHasInlineConfig(q)) && (
                       <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Preguntas condicionales:</span>
                         {(q.options || []).map((opt) => (
@@ -1470,6 +1672,14 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       <Edit2 size={14} />
                       <span>Editar Pregunta #{idx + 1}</span>
                     </h5>
+
+                    <div style={{
+                      display: tempType === 'kit-picker' ? 'grid' : 'block',
+                      gridTemplateColumns: tempType === 'kit-picker' ? 'minmax(0, 1fr) minmax(260px, 0.95fr)' : undefined,
+                      gap: '16px',
+                      alignItems: 'start',
+                    }}>
+                      <div>
                     
                     <div className="form-group" style={{ marginBottom: '10px' }}>
                       <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: 500 }}>Texto de la pregunta</label>
@@ -1605,14 +1815,20 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         <input 
                           type="text" 
                           className="input-text" 
-                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit A, Kit B, Kit C' : 'Ej. Opción 1, Opción 2, Opción 3'} 
+                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit 1, Kit 2, Kit 3' : 'Ej. Opción 1, Opción 2, Opción 3'} 
                           value={tempOptionsStr} 
-                          onChange={e => setTempOptionsStr(e.target.value)} 
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setTempOptionsStr(next);
+                            if (tempType === 'kit-picker') {
+                              setTempKitOptionConfigs(syncKitOptionConfigsFromOptions(next, tempKitOptionConfigs));
+                            }
+                          }} 
                         />
                       </div>
                     )}
 
-                    {renderKitInlineConfigField()}
+                    {renderKitOptionConfigsField()}
 
                     {renderKitModeField()}
 
@@ -1651,6 +1867,14 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       >
                         Cancelar
                       </button>
+                    </div>
+                      </div>
+
+                      {tempType === 'kit-picker' && (
+                        <div style={{ position: 'sticky', top: '12px' }}>
+                          <KitPickerQuestionPreview question={buildPreviewKitPickerQuestion()} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1811,7 +2035,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       {/* MODAL CREAR/EDITAR FORMULARIO */}
       {showCreateModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '650px' }}>
+          <div className="modal-content" style={{ maxWidth: tempType === 'kit-picker' ? '980px' : '650px' }}>
             <div className="modal-header">
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
                 <ClipboardList size={22} color="var(--accent)" />
@@ -2080,6 +2304,14 @@ export default function AdminForms({ forms, onRefreshForms }) {
                       </p>
                     )}
                     
+                    <div style={{
+                      display: !editingQuestionId && tempType === 'kit-picker' ? 'grid' : 'block',
+                      gridTemplateColumns: !editingQuestionId && tempType === 'kit-picker' ? 'minmax(0, 1fr) minmax(260px, 0.95fr)' : undefined,
+                      gap: '16px',
+                      alignItems: 'start',
+                    }}>
+                      <div>
+
                     <div className="form-group" style={{ marginBottom: '12px' }}>
                       <label className="form-label" style={{ fontSize: '0.85rem', opacity: editingQuestionId ? 0.5 : 1 }}>Texto de la pregunta / Etiqueta</label>
                       <input 
@@ -2222,15 +2454,21 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         <input 
                           type="text" 
                           className="input-text" 
-                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit A, Kit B, Kit C' : 'Ej. Opción 1, Opción 2, Opción 3'} 
+                          placeholder={tempType === 'kit-picker' ? 'Ej. Kit 1, Kit 2, Kit 3' : 'Ej. Opción 1, Opción 2, Opción 3'} 
                           value={editingQuestionId ? '' : tempOptionsStr} 
                           disabled={!!editingQuestionId}
-                          onChange={e => setTempOptionsStr(e.target.value)} 
+                          onChange={(e) => {
+                            const next = e.target.value;
+                            setTempOptionsStr(next);
+                            if (tempType === 'kit-picker') {
+                              setTempKitOptionConfigs(syncKitOptionConfigsFromOptions(next, tempKitOptionConfigs));
+                            }
+                          }} 
                         />
                       </div>
                     )}
 
-                    {renderKitInlineConfigField()}
+                    {renderKitOptionConfigsField()}
 
                     {renderKitModeField()}
 
@@ -2264,6 +2502,14 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         Guarda o cancela la edición de la pregunta actual para poder agregar nuevas.
                       </p>
                     )}
+                      </div>
+
+                      {!editingQuestionId && tempType === 'kit-picker' && (
+                        <div style={{ position: 'sticky', top: '12px' }}>
+                          <KitPickerQuestionPreview question={buildPreviewKitPickerQuestion()} />
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                 </div>

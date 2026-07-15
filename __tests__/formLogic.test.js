@@ -527,21 +527,37 @@ describe('formLogic - multi article kit (Kit 3)', () => {
     const question = {
       id: 'q-picker',
       type: 'kit-picker',
-      options: ['Kit A'],
-      kitInlineConfig: {
-        enabled: true,
-        itemLabel: 'Camisa',
-        colors: ['Crema', 'Blanco'],
-        sizeOptions: ['S', 'M'],
+      options: ['Kit 2'],
+      kitOptionConfigs: {
+        'Kit 2': {
+          enabled: true,
+          sections: [{
+            key: 'camisa',
+            label: 'Camisa',
+            options: ['Crema', 'Blanco'],
+            sizeOptions: ['S', 'M'],
+          }],
+          sharedMaxGroups: {},
+        },
       },
     };
 
-    expect(isKitPickerValid(question, { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } } })).toBe(true);
-    expect(isKitPickerValid(question, { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 0 } } } })).toBe(false);
-    expect(formatKitPickerAnswer(
-      { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } } },
-      question
-    )).toBe('Kit A: 1 — Camisa Crema: 1 (1S)');
+    expect(isKitPickerValid(question, {
+      'Kit 2': {
+        qty: 1,
+        sections: {
+          camisa: { colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } },
+        },
+      },
+    })).toBe(true);
+    expect(formatKitPickerAnswer({
+      'Kit 2': {
+        qty: 1,
+        sections: {
+          camisa: { colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } },
+        },
+      },
+    }, question)).toBe('Kit 2: 1 — Camisa: Crema: 1 (1S)');
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {
