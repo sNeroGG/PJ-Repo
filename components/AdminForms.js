@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ClipboardList, Plus, Trash2, Eye, EyeOff, Check, X, Copy, ExternalLink, Edit, ArrowUp, ArrowDown, Edit2, Upload, GitBranch } from 'lucide-react';
 import { storageService } from '../lib/storage';
-import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType, getQuestionTypeLabel, enrichLimitFromShowWhen, normalizeQuestionsConfig, getQuestionConfigWarnings } from '../lib/formLogic';
+import { buildShowWhen, formatShowWhenLabel, getParentQuestionsWithOptions, getLimitSourceCandidates, formatMaxSelectionsLabel, formatMaxTotalLabel, isOptionQuantityType, getQuestionTypeLabel, enrichLimitFromShowWhen, normalizeQuestionsConfig, getQuestionConfigWarnings, kitPickerHasInlineConfig } from '../lib/formLogic';
 import ImageCropperModal from './ImageCropperModal';
 
 const DEFAULT_KIT_SECTIONS = [
@@ -13,9 +13,9 @@ const DEFAULT_KIT_SECTIONS = [
 ];
 
 const QUESTION_TYPE_HINTS = {
-  'kit-picker': 'El usuario elige cuántos de cada kit con botones −/+. Usa los botones + "Kit X" para crear preguntas de configuración.',
-  'quantity-group': 'Varias opciones con cantidad −/+ cada una. Útil cuando no son kits sino cantidades por producto.',
-  'kit-color-sizes': 'Colores con −/+ y tallas que se abren automáticamente. Conviene como pregunta condicional de un kit.',
+  'kit-picker': 'El usuario elige cuántos kits con −/+. Si activas colores y tallas, la configuración se abre debajo de cada kit en la misma pregunta.',
+  'quantity-group': 'Varias opciones con cantidad −/+ cada una.',
+  'kit-color-sizes': 'Pregunta separada de colores y tallas. Úsala solo si NO configuraste colores/tallas dentro del selector de kits.',
   number: 'Para cantidad simple. Activa −/+ si quieres botones en lugar de escribir el número.',
 };
 
@@ -58,6 +58,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
   const [tempKitSections, setTempKitSections] = useState(DEFAULT_KIT_SECTIONS);
   const [tempSharedGroupMaxFromId, setTempSharedGroupMaxFromId] = useState('');
   const [tempSharedGroupMaxFromOption, setTempSharedGroupMaxFromOption] = useState('');
+  const [tempKitInlineEnabled, setTempKitInlineEnabled] = useState(true);
+  const [tempKitInlineItemLabel, setTempKitInlineItemLabel] = useState('Camisa');
+  const [tempKitInlineColorsStr, setTempKitInlineColorsStr] = useState('Crema, Blanco');
+  const [tempKitInlineSizeOptionsStr, setTempKitInlineSizeOptionsStr] = useState('S, M, L, XL');
 
   const [copiedFormId, setCopiedFormId] = useState(null);
 
@@ -143,6 +147,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
     setTempKitSections(DEFAULT_KIT_SECTIONS);
     setTempSharedGroupMaxFromId('');
     setTempSharedGroupMaxFromOption('');
+    setTempKitInlineEnabled(true);
+    setTempKitInlineItemLabel('Camisa');
+    setTempKitInlineColorsStr('Crema, Blanco');
+    setTempKitInlineSizeOptionsStr('S, M, L, XL');
   };
 
   const buildKitSectionsFromTemp = () => tempKitSections.map((section, index) => {
@@ -248,6 +256,35 @@ export default function AdminForms({ forms, onRefreshForms }) {
     return questionObj;
   };
 
+  const applyKitPickerConfig = (questionObj) => {
+    if (tempType !== 'kit-picker') {
+      delete questionObj.kitInlineConfig;
+      return questionObj;
+    }
+
+    if (!tempKitInlineEnabled) {
+      delete questionObj.kitInlineConfig;
+      return questionObj;
+    }
+
+    const colors = tempKitInlineColorsStr
+      .split(',')
+      .map((opt) => opt.trim())
+      .filter(Boolean);
+    const sizeOptions = tempKitInlineSizeOptionsStr
+      .split(',')
+      .map((opt) => opt.trim())
+      .filter(Boolean);
+
+    questionObj.kitInlineConfig = {
+      enabled: true,
+      itemLabel: tempKitInlineItemLabel.trim() || 'Camisa',
+      colors,
+      sizeOptions,
+    };
+    return questionObj;
+  };
+
   // Añadir o actualizar una pregunta
   const handleAddQuestion = () => {
     if (!tempLabel.trim()) return;
@@ -310,6 +347,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
             delete updatedQ.useStepper;
           }
           applyKitQuestionConfig(updatedQ);
+          applyKitPickerConfig(updatedQ);
           return updatedQ;
         }
         return q;
@@ -318,7 +356,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
       setEditingQuestionId(null);
     } else {
       // Crear nueva pregunta
-      const questionObj = applyKitQuestionConfig({
+      const questionObj = applyKitPickerConfig(applyKitQuestionConfig({
         id: `q-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         type: tempType,
         label: tempLabel,
@@ -333,7 +371,7 @@ export default function AdminForms({ forms, onRefreshForms }) {
         ...(maxTotalFrom ? { maxTotalFrom } : {}),
         ...(sizeOptions?.length ? { sizeOptions } : {}),
         ...(tempType === 'number' && tempUseStepper ? { useStepper: true } : {}),
-      });
+      }));
       setNewQuestions(insertQuestionAtCorrectPosition(questionObj, true));
     }
 
@@ -375,6 +413,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
       || Object.entries(q.sharedMaxGroups || {})[0];
     setTempSharedGroupMaxFromId(sharedGroupEntry?.[1]?.maxTotalFrom?.questionId || '');
     setTempSharedGroupMaxFromOption(sharedGroupEntry?.[1]?.maxTotalFrom?.optionKey || '');
+    setTempKitInlineEnabled(!!(q.kitInlineConfig?.enabled ?? (q.type === 'kit-picker')));
+    setTempKitInlineItemLabel(q.kitInlineConfig?.itemLabel || 'Camisa');
+    setTempKitInlineColorsStr((q.kitInlineConfig?.colors || ['Crema', 'Blanco']).join(', '));
+    setTempKitInlineSizeOptionsStr((q.kitInlineConfig?.sizeOptions || ['S', 'M', 'L', 'XL']).join(', '));
     setEditingQuestionId(q.id);
   };
 
@@ -453,6 +495,15 @@ export default function AdminForms({ forms, onRefreshForms }) {
       return (
         <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px' }}>
           Kits: {(question.options || []).join(', ')}
+          {kitPickerHasInlineConfig(question) && (
+            <span>
+              {' '}· Debajo de cada kit: {question.kitInlineConfig.itemLabel || 'Camisa'}{' '}
+              {(question.kitInlineConfig.colors || []).join(', ')}
+              {(question.kitInlineConfig.sizeOptions || []).length > 0 && (
+                <span> · Tallas: {(question.kitInlineConfig.sizeOptions || []).join(', ')}</span>
+              )}
+            </span>
+          )}
         </div>
       );
     }
@@ -1017,6 +1068,67 @@ export default function AdminForms({ forms, onRefreshForms }) {
     );
   };
 
+  const renderKitInlineConfigField = () => {
+    if (tempType !== 'kit-picker') return null;
+
+    return (
+      <div style={{
+        marginBottom: '12px',
+        padding: '12px',
+        borderRadius: '8px',
+        border: '1px solid #bee3f8',
+        backgroundColor: '#f0f9ff',
+      }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
+          <input
+            type="checkbox"
+            checked={tempKitInlineEnabled}
+            onChange={(e) => setTempKitInlineEnabled(e.target.checked)}
+          />
+          Configurar colores y tallas debajo de cada kit (todo en una pregunta)
+        </label>
+
+        {tempKitInlineEnabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Nombre del artículo</label>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="Camisa"
+                value={tempKitInlineItemLabel}
+                onChange={(e) => setTempKitInlineItemLabel(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Colores (separados por comas)</label>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="Crema, Blanco"
+                value={tempKitInlineColorsStr}
+                onChange={(e) => setTempKitInlineColorsStr(e.target.value)}
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem' }}>Tallas (separadas por comas)</label>
+              <input
+                type="text"
+                className="input-text"
+                placeholder="S, M, L, XL"
+                value={tempKitInlineSizeOptionsStr}
+                onChange={(e) => setTempKitInlineSizeOptionsStr(e.target.value)}
+              />
+            </div>
+            <p style={{ fontSize: '0.72rem', color: '#2b6cb0', margin: 0, fontStyle: 'italic', lineHeight: 1.5 }}>
+              Si el usuario elige 1 Kit A, debajo verá Camisa Crema y Camisa Blanco. Al elegir un color, se abren sus tallas.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderConditionalFields = (questionIndex, fieldIdPrefix) => {
     const parentCandidates = getParentQuestionsWithOptions(newQuestions, questionIndex);
     const selectedParent = newQuestions.find((q) => q.id === tempShowWhenParentId);
@@ -1141,9 +1253,9 @@ export default function AdminForms({ forms, onRefreshForms }) {
             }}>
               <strong style={{ color: '#276749' }}>Guía rápida — Kits</strong>
               <ol style={{ margin: '8px 0 0', paddingLeft: '18px', color: '#2f855a' }}>
-                <li>Crea un <strong>Selector de kits</strong> con los nombres (Kit 1, Kit 2…).</li>
-                <li>Usa el botón <strong>+ &quot;Kit X&quot; (qty&gt;0)</strong> para agregar colores y tallas.</li>
-                <li>Verifica que el límite diga <strong>→ &quot;Kit X&quot;</strong>, no solo el nombre del combo.</li>
+                <li>En el <strong>Selector de kits</strong>, activa <strong>colores y tallas debajo de cada kit</strong>.</li>
+                <li>Define kits (Kit 1, Kit 2…), colores (Crema, Blanco) y tallas (S, M, L, XL).</li>
+                <li>No necesitas preguntas condicionales separadas: todo se abre debajo del kit elegido.</li>
               </ol>
             </div>
           )}
@@ -1197,6 +1309,11 @@ export default function AdminForms({ forms, onRefreshForms }) {
                           Kit múltiple
                         </span>
                       )}
+                      {q.type === 'kit-picker' && q.kitInlineConfig?.enabled && (
+                        <span className="badge" style={{ fontSize: '0.65rem', padding: '2px 6px', backgroundColor: '#e6fffa', color: '#234e52' }}>
+                          Config. integrada
+                        </span>
+                      )}
                     </div>
                     {q.showWhen && (
                       <div style={{ color: '#2b6cb0', fontSize: '0.72rem', marginTop: '4px', fontWeight: 500 }}>
@@ -1239,7 +1356,10 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         ))}
                       </div>
                     )}
-                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker'].includes(q.type) && (q.options || []).length > 0 && !isEditing && (
+                    {['select', 'checkbox-group', 'quantity-group', 'kit-picker'].includes(q.type)
+                      && (q.options || []).length > 0
+                      && !isEditing
+                      && !(q.type === 'kit-picker' && q.kitInlineConfig?.enabled) && (
                       <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>Preguntas condicionales:</span>
                         {(q.options || []).map((opt) => (
@@ -1491,6 +1611,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         />
                       </div>
                     )}
+
+                    {renderKitInlineConfigField()}
 
                     {renderKitModeField()}
 
@@ -2107,6 +2229,8 @@ export default function AdminForms({ forms, onRefreshForms }) {
                         />
                       </div>
                     )}
+
+                    {renderKitInlineConfigField()}
 
                     {renderKitModeField()}
 

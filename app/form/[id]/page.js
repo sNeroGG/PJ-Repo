@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navbar from '../../../components/Navbar';
 import { storageService } from '../../../lib/storage';
-import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, isCheckboxOptionDisabled, getMaxSelectionsForQuestion, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer } from '../../../lib/formLogic';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, isCheckboxOptionDisabled, getMaxSelectionsForQuestion, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, isKitPickerValid } from '../../../lib/formLogic';
 import NumberStepperControl from '../../../components/NumberStepperControl';
 import QuantityGroupControl from '../../../components/QuantityGroupControl';
 import KitPickerControl from '../../../components/KitPickerControl';
@@ -44,8 +44,12 @@ export default function FillFormPage() {
           f.questions.forEach(q => {
             if (q.type === 'checkbox-group') {
               initialAnswers[q.id] = [];
-            } else if (q.type === 'quantity-group' || q.type === 'kit-picker') {
+            } else if (q.type === 'quantity-group') {
               initialAnswers[q.id] = {};
+            } else if (q.type === 'kit-picker') {
+              initialAnswers[q.id] = kitPickerHasInlineConfig(q)
+                ? createEmptyKitPickerAnswer(q)
+                : {};
             } else if (q.type === 'kit-color-sizes') {
               initialAnswers[q.id] = createEmptyKitAnswer(q);
             } else {
@@ -151,6 +155,20 @@ export default function FillFormPage() {
     const cleared = clearHiddenQuestionAnswers(form.questions, changed);
     const newAnswers = enforceAnswerLimits(form.questions, cleared);
     setAnswers(newAnswers);
+  };
+
+  const handleKitPickerChange = (change) => {
+    if (!form) return;
+    const question = form.questions.find((q) => q.id === change.questionId);
+    if (!question) return;
+
+    if (change.kind === 'qty' && !canSetQuantityOption(question, change.kitKey, change.value, answers, form.questions)) {
+      return;
+    }
+
+    const changed = applyKitPickerChange(question, answers, change);
+    const cleared = clearHiddenQuestionAnswers(form.questions, changed);
+    setAnswers(enforceAnswerLimits(form.questions, cleared));
   };
 
   const handleQuantityOptionChange = (questionId, option, newQty) => {
@@ -270,8 +288,10 @@ export default function FillFormPage() {
       const ans = answers[q.id];
       if (q.type === 'checkbox-group') {
         if (!ans || ans.length === 0) return false;
-      } else if (q.type === 'quantity-group' || q.type === 'kit-picker') {
+      } else if (q.type === 'quantity-group') {
         if (getQuantityGroupTotal(ans) === 0) return false;
+      } else if (q.type === 'kit-picker') {
+        if (!isKitPickerValid(q, ans)) return false;
       } else if (q.type === 'kit-color-sizes') {
         if (!isKitColorSizesValid(q, ans)) return false;
       } else {
@@ -482,7 +502,7 @@ export default function FillFormPage() {
             question={q}
             answers={answers}
             questions={form.questions}
-            onQuantityChange={handleQuantityOptionChange}
+            onKitPickerChange={handleKitPickerChange}
           />
         )}
 

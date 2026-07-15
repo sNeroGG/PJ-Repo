@@ -13,6 +13,10 @@ import {
   getMaxTotalForQuestion,
   enrichLimitFromShowWhen,
   getQuestionConfigWarnings,
+  applyKitPickerChange,
+  isKitPickerValid,
+  formatKitPickerAnswer,
+  kitPickerHasInlineConfig,
   getQuantityGroupTotal,
   enforceSelectionLimits,
   enforceQuantityLimits,
@@ -517,6 +521,27 @@ describe('formLogic - multi article kit (Kit 3)', () => {
     expect(getQuestionConfigWarnings(questions[1], questions)).toContain(
       'Selecciona "Kit 2" en "¿Qué kit?" del límite dinámico.'
     );
+  });
+
+  test('kit-picker inline config validates colors and sizes per kit', () => {
+    const question = {
+      id: 'q-picker',
+      type: 'kit-picker',
+      options: ['Kit A'],
+      kitInlineConfig: {
+        enabled: true,
+        itemLabel: 'Camisa',
+        colors: ['Crema', 'Blanco'],
+        sizeOptions: ['S', 'M'],
+      },
+    };
+
+    expect(isKitPickerValid(question, { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } } })).toBe(true);
+    expect(isKitPickerValid(question, { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 0 } } } })).toBe(false);
+    expect(formatKitPickerAnswer(
+      { 'Kit A': { qty: 1, colors: { Crema: 1 }, sizes: { Crema: { S: 1 } } } },
+      question
+    )).toBe('Kit A: 1 — Camisa Crema: 1 (1S)');
   });
 
   test('kit-picker triggers quantity_gt conditionals like quantity-group', () => {
