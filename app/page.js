@@ -5,15 +5,12 @@ import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import EventCalendar from '../components/EventCalendar';
 import { storageService } from '../lib/storage';
-import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, isCheckboxOptionDisabled, getMaxSelectionsForQuestion, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, isKitPickerValid } from '../lib/formLogic';
-import NumberStepperControl from '../components/NumberStepperControl';
-import QuantityGroupControl from '../components/QuantityGroupControl';
-import KitPickerControl from '../components/KitPickerControl';
-import KitColorSizesControl from '../components/KitColorSizesControl';
+import { getVisibleQuestions, clearHiddenQuestionAnswers, getSanitizedAnswersForSubmit, enforceAnswerLimits, canAddCheckboxOption, canSetQuantityOption, getQuantityGroupTotal, applyKitColorSizesChange, isKitColorSizesValid, createEmptyKitAnswer, applyKitPickerChange, createEmptyKitPickerAnswer, kitPickerHasInlineConfig, isKitPickerValid } from '../lib/formLogic';
+import FormView, { FormSuccessScreen, FormGateScreen } from '../components/FormView';
 import { shouldShowMaintenanceBlock } from '../lib/portalRules';
 import MaintenanceBlock from '../components/MaintenanceBlock';
 import { branding } from '../lib/branding';
-import { ClipboardCopy, Heart, Sparkles, BookOpen, Star, CheckCircle2, Send, UploadCloud, FileText, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function HomePage() {
   const [forms, setForms] = useState([]);
@@ -285,351 +282,14 @@ export default function HomePage() {
     setIsSubmitted(true);
   };
 
-  const renderQuestionInput = (q, idx) => {
-    const isRequired = q.required;
-    const value = answers[q.id];
-
-    return (
-      <div key={q.id} className="form-group" style={{ marginBottom: '20px', textAlign: 'left', animation: 'fadeIn 0.2s ease-out' }}>
-        <label className="form-label" style={{ fontWeight: 600, marginBottom: q.description ? '4px' : '8px' }}>
-          {idx + 1}. {q.label} {isRequired && <span className="required">*</span>}
-        </label>
-
-        {q.description && (
-          <div style={{ 
-            fontSize: '0.82rem', 
-            color: 'var(--text-muted)', 
-            marginTop: '0px', 
-            marginBottom: '12px',
-            lineHeight: '1.4',
-            fontStyle: 'italic'
-          }}>
-            {q.description}
-          </div>
-        )}
-
-        {q.imageUrl && (
-          <div style={{ 
-            marginBottom: '14px', 
-            marginTop: '8px', 
-            borderRadius: 'var(--radius-sm)', 
-            overflow: 'hidden', 
-            maxHeight: '220px', 
-            maxWidth: '100%',
-            display: 'flex', 
-            justifyContent: 'center',
-            backgroundColor: '#f7fafc',
-            border: '1px solid #edf2f7',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <img 
-              src={q.imageUrl} 
-              alt="Ilustración de la pregunta" 
-              style={{ maxHeight: '220px', width: 'auto', maxWidth: '100%', objectFit: 'contain', cursor: 'pointer', transition: 'transform 0.2s' }}
-              onClick={() => setLightboxImage(q.imageUrl)}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.01)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            />
-          </div>
-        )}
-
-        {q.type === 'text' && (
-          <input
-            type="text"
-            className="input-text"
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-            value={value || ''}
-            onChange={e => handleInputChange(q.id, e.target.value)}
-            placeholder="Escribe tu respuesta..."
-          />
-        )}
-
-        {q.type === 'number' && q.useStepper && (
-          <NumberStepperControl
-            value={value || 0}
-            min={0}
-            onChange={(next) => handleInputChange(q.id, String(next))}
-          />
-        )}
-
-        {q.type === 'number' && !q.useStepper && (
-          <input
-            type="number"
-            className="input-text"
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-            value={value || ''}
-            onChange={e => handleInputChange(q.id, e.target.value)}
-            placeholder="Ej. 18"
-          />
-        )}
-
-        {q.type === 'date' && (
-          <input
-            type="date"
-            className="input-text"
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-            value={value || ''}
-            onChange={e => handleInputChange(q.id, e.target.value)}
-          />
-        )}
-
-        {q.type === 'email' && (
-          <input
-            type="email"
-            className="input-text"
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-            value={value || ''}
-            onChange={e => handleInputChange(q.id, e.target.value)}
-            placeholder="correo@ejemplo.com"
-          />
-        )}
-
-        {q.type === 'textarea' && (
-          <textarea
-            className="textarea"
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-            value={value || ''}
-            onChange={e => handleInputChange(q.id, e.target.value)}
-            placeholder="Escribe tu respuesta aquí..."
-            rows={4}
-          />
-        )}
-
-        {q.type === 'select' && (
-          <select 
-            className="select" 
-            value={value || ''} 
-            onChange={e => handleInputChange(q.id, e.target.value)}
-            required={isRequired && featuredForm.layoutMode !== 'one-by-one'}
-          >
-            <option value="">-- Selecciona una opción --</option>
-            {q.options.map(opt => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
-        )}
-
-        {q.type === 'checkbox-group' && (() => {
-          const selected = value || [];
-          const maxSelections = featuredForm
-            ? getMaxSelectionsForQuestion(q, answers, featuredForm.questions)
-            : null;
-
-          return (
-            <div>
-              {maxSelections !== null && (
-                <div style={{
-                  fontSize: '0.8rem',
-                  color: selected.length >= maxSelections ? 'var(--danger)' : 'var(--text-muted)',
-                  marginBottom: '8px',
-                  fontWeight: 600
-                }}>
-                  Seleccionados {selected.length} de {maxSelections}
-                  {maxSelections === 0 && ' — indica primero la cantidad de kits'}
-                </div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
-                {q.options.map(opt => {
-                  const isChecked = selected.includes(opt);
-                  const isDisabled = featuredForm
-                    ? isCheckboxOptionDisabled(q, opt, answers, featuredForm.questions)
-                    : false;
-
-                  return (
-                    <label
-                      key={opt}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: isDisabled ? 'not-allowed' : 'pointer',
-                        fontSize: '0.9rem',
-                        opacity: isDisabled ? 0.5 : 1
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        disabled={isDisabled}
-                        onChange={e => handleCheckboxChange(q.id, opt, e.target.checked)}
-                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
-                      />
-                      <span>{opt}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
-
-        {q.type === 'kit-picker' && featuredForm && (
-          <KitPickerControl
-            question={q}
-            answers={answers}
-            questions={featuredForm.questions}
-            onKitPickerChange={handleKitPickerChange}
-          />
-        )}
-
-        {q.type === 'quantity-group' && featuredForm && (
-          <QuantityGroupControl
-            question={q}
-            answers={answers}
-            questions={featuredForm.questions}
-            onQuantityChange={handleQuantityOptionChange}
-          />
-        )}
-
-        {q.type === 'kit-color-sizes' && featuredForm && (
-          <KitColorSizesControl
-            question={q}
-            answers={answers}
-            questions={featuredForm.questions}
-            onKitColorSizesChange={handleKitColorSizesChange}
-          />
-        )}
-
-        {/* Adjuntar Archivo Opcional/Obligatorio */}
-        {q.allowFileAttachment && (
-          <div style={{ marginTop: '12px' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Archivo Adjunto (PDF o Imagen)</span>
-              {q.fileRequired && <span className="required">*</span>}
-            </div>
-
-            {answers[q.id + '_file'] ? (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                backgroundColor: '#f7fafc',
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-              }}>
-                {answers[q.id + '_file'].match(/\.(jpeg|jpg|gif|png|webp)/i) ? (
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '4px',
-                    overflow: 'hidden',
-                    border: '1px solid var(--border-color)',
-                    cursor: 'pointer',
-                    flexShrink: 0
-                  }}
-                  onClick={() => setLightboxImage(answers[q.id + '_file'])}
-                  >
-                    <img src={answers[q.id + '_file']} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                ) : (
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '4px',
-                    backgroundColor: '#e2e8f0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#4a5568',
-                    flexShrink: 0
-                  }}>
-                    <FileText size={20} />
-                  </div>
-                )}
-
-                <div style={{ flexGrow: 1, minWidth: 0 }}>
-                  <a 
-                    href={answers[q.id + '_file']} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ 
-                      fontSize: '0.85rem', 
-                      color: 'var(--primary)', 
-                      fontWeight: 600, 
-                      textDecoration: 'underline',
-                      textOverflow: 'ellipsis',
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                      display: 'block'
-                    }}
-                  >
-                    {answers[q.id + '_fileName'] || 'Ver archivo adjunto'}
-                  </a>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Cargado correctamente</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => removeQuestionFile(q.id)}
-                  className="btn btn-danger btn-sm"
-                  style={{ padding: '6px', background: 'transparent', color: 'var(--danger)', border: 'none' }}
-                  title="Eliminar archivo"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div 
-                  style={{
-                    border: '1.5px dashed var(--border-color)',
-                    borderRadius: '8px',
-                    padding: '16px 20px',
-                    textAlign: 'center',
-                    backgroundColor: '#fafbfd',
-                    cursor: uploadingQuestionId === q.id ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    transition: 'var(--transition)'
-                  }}
-                  onClick={() => {
-                    if (uploadingQuestionId !== q.id) {
-                      document.getElementById(`file-input-${q.id}`).click();
-                    }
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-                  onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
-                >
-                  <input 
-                    type="file" 
-                    id={`file-input-${q.id}`}
-                    style={{ display: 'none' }}
-                    accept="image/*,application/pdf"
-                    onChange={(e) => handleQuestionFileUpload(q.id, e.target.files[0])}
-                    disabled={uploadingQuestionId === q.id}
-                  />
-                  {uploadingQuestionId === q.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="spinner" style={{ width: '18px', height: '18px', border: '2px solid var(--accent-light)', borderTop: '2px solid var(--accent)', borderRadius: '50%' }}></div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Subiendo...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <UploadCloud size={16} />
-                        <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Seleccionar archivo</span>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        PDF o Imagen (PNG, JPG, WebP) de hasta 5MB
-                      </div>
-                    </>
-                  )}
-                </div>
-                {fileErrors[q.id] && (
-                  <div style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 600 }}>
-                    {fileErrors[q.id]}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
+  const questionHandlers = {
+    onInputChange: handleInputChange,
+    onCheckboxChange: handleCheckboxChange,
+    onQuantityChange: handleQuantityOptionChange,
+    onKitPickerChange: handleKitPickerChange,
+    onKitColorSizesChange: handleKitColorSizesChange,
+    onFileUpload: handleQuestionFileUpload,
+    onFileRemove: removeQuestionFile,
   };
 
   const activeForms = forms.filter(f => f.isActive);
@@ -648,319 +308,48 @@ export default function HomePage() {
 
   if (settings.mode === 'single_form' && featuredForm) {
     return (
-      <>
-        <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        backgroundColor: 'var(--bg-app)',
-        padding: '20px'
-      }}>
+      <div className="form-shell form-shell--centered">
         {isSubmitted ? (
-          <div className="card" style={{
-            maxWidth: '550px',
-            width: '100%',
-            textAlign: 'center',
-            padding: '50px 30px',
-            animation: 'scaleUp 0.3s ease-out',
-            boxShadow: 'var(--shadow-lg)'
-          }}>
-            <div className="card-header-accent" style={{ background: 'var(--accent)' }}></div>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '80px',
-              height: '80px',
-              backgroundColor: '#e6fffa',
-              borderRadius: '50%',
-              color: '#319795',
-              marginBottom: '20px'
-            }}>
-              <CheckCircle2 size={44} />
-            </div>
-
-            <h2 style={{ color: 'var(--primary)', marginBottom: '12px', fontSize: '1.8rem' }}>
-              ¡Respuestas Guardadas!
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', lineHeight: 1.6, marginBottom: 0 }}>
-              Hemos guardado tu respuesta. Gracias por participar en {branding.name}.
-            </p>
+          <div className="form-card">
+            <div className="card-header-accent" style={{ background: 'var(--accent)' }} />
+            <FormSuccessScreen />
           </div>
         ) : showGateScreen ? (
-          /* PANTALLA DE BIENVENIDA / ACCESO AL CUESTIONARIO */
-          <div className="card" style={{
-            maxWidth: '550px',
-            width: '100%',
-            textAlign: 'center',
-            padding: '48px 32px',
-            animation: 'scaleUp 0.3s ease-out',
-            boxShadow: 'var(--shadow-lg)'
-          }}>
-            <div className="card-header-accent"></div>
-
-            {/* Flyer del Evento */}
-            {featuredForm.flyerUrl && (
-              <div style={{
-                marginBottom: '24px',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-                maxHeight: '300px',
-                display: 'flex',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}>
-                <img
-                  src={featuredForm.flyerUrl}
-                  alt={`Flyer de ${featuredForm.title}`}
-                  onClick={() => setLightboxImage(featuredForm.flyerUrl)}
-                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', transition: 'transform 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                />
-              </div>
-            )}
-
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'var(--accent-light)',
-              padding: '6px 16px',
-              borderRadius: '20px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-              color: 'var(--accent-hover)',
-              marginBottom: '16px'
-            }}>
-              FORMULARIO ACTIVO
-            </div>
-
-            <h2 style={{ color: 'var(--primary)', marginBottom: '16px', fontSize: '1.8rem' }}>
-              Formulario: {featuredForm.title}
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '32px' }}>
-              {featuredForm.description || 'Por favor, tómate unos minutos para completar este registro.'}
-            </p>
-
-            <button
-              onClick={() => setShowGateScreen(false)}
-              className="btn btn-accent"
-              style={{ width: '100%', padding: '14px 24px', fontWeight: 'bold' }}
-            >
-              Rellenar cuestionario ahora
-            </button>
+          <div className="form-card">
+            <div className="card-header-accent" />
+            <FormGateScreen
+              form={featuredForm}
+              onStart={() => setShowGateScreen(false)}
+              onImageClick={setLightboxImage}
+            />
           </div>
         ) : (
-          <div className="card" style={{ maxWidth: '600px', width: '100%', padding: '32px', boxShadow: 'var(--shadow-lg)' }}>
-            <div className="card-header-accent"></div>
-
-            {/* Flyer del Evento */}
-            {featuredForm.flyerUrl && (
-              <div style={{
-                marginBottom: '24px',
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden',
-                maxHeight: '300px',
-                display: 'flex',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}>
-                <img
-                  src={featuredForm.flyerUrl}
-                  alt={`Flyer de ${featuredForm.title}`}
-                  onClick={() => setLightboxImage(featuredForm.flyerUrl)}
-                  style={{ width: '100%', height: 'auto', objectFit: 'cover', display: 'block', transition: 'transform 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.03)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                />
-              </div>
-            )}
-
-            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '1.6rem', color: 'var(--primary)', marginBottom: '8px' }}>{featuredForm.title}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>{featuredForm.description}</p>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              {featuredForm.layoutMode === 'one-by-one' ? (
-                /* MODO PASO A PASO (WIZARD) */
-                <div>
-                  {/* Barra de Progreso */}
-                  <div style={{ marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>
-                      <span>Pregunta {currentStep + 1} de {visibleQuestions.length}</span>
-                      <span>{visibleQuestions.length > 0 ? Math.round((currentStep / visibleQuestions.length) * 100) : 0}% Completado</span>
-                    </div>
-                    <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div 
-                        style={{ 
-                          width: `${visibleQuestions.length > 0 ? (currentStep / visibleQuestions.length) * 100 : 0}%`, 
-                          height: '100%', 
-                          backgroundColor: 'var(--accent)', 
-                          borderRadius: '3px',
-                          transition: 'width 0.3s ease-out' 
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Renderizar Pregunta Actual */}
-                  {(() => {
-                    const q = visibleQuestions[currentStep];
-                    if (!q) return null;
-                    return renderQuestionInput(q, currentStep);
-                  })()}
-
-                  {/* Botones de Navegación del Paso a Paso */}
-                  <div style={{ 
-                    borderTop: '1px solid var(--border-color)', 
-                    paddingTop: '20px', 
-                    marginTop: '32px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}>
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        if (currentStep > 0) {
-                          setCurrentStep(currentStep - 1);
-                        } else {
-                          setShowGateScreen(true);
-                        }
-                      }} 
-                      className="btn btn-secondary"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      <ChevronLeft size={16} /> {currentStep > 0 ? 'Anterior' : 'Atrás'}
-                    </button>
-
-                    {currentStep < visibleQuestions.length - 1 ? (
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          if (validateQuestion(visibleQuestions[currentStep])) {
-                            setCurrentStep(currentStep + 1);
-                          } else {
-                            alert('Por favor, responde la pregunta y sube el archivo si es obligatorio para continuar.');
-                          }
-                        }} 
-                        className="btn btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        Siguiente <ChevronRight size={16} />
-                      </button>
-                    ) : (
-                      <button 
-                        type="submit" 
-                        className="btn btn-primary" 
-                        style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', padding: '10px 24px' }}
-                        disabled={isSubmitting}
-                      >
-                        <Send size={16} /> {isSubmitting ? 'Enviando...' : 'Enviar Formulario'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                /* MODO VISTA ÚNICA (TRADICIONAL) */
-                <div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '24px' }}>
-                    {visibleQuestions.map((q, idx) => renderQuestionInput(q, idx))}
-                  </div>
-
-                  <div style={{ 
-                    borderTop: '1px solid var(--border-color)', 
-                    paddingTop: '20px', 
-                    marginTop: '32px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}>
-                    <button type="button" onClick={() => setShowGateScreen(true)} className="btn btn-secondary">
-                      Atrás
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="btn btn-primary" 
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', padding: '10px 24px' }}
-                      disabled={isSubmitting}
-                    >
-                      <Send size={16} /> {isSubmitting ? 'Enviando...' : 'Enviar Respuestas'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </form>
+          <div className="form-card" style={{ maxWidth: '720px' }}>
+            <div className="card-header-accent" />
+            <FormView
+              form={featuredForm}
+              visibleQuestions={visibleQuestions}
+              answers={answers}
+              layoutMode={featuredForm.layoutMode || 'all-at-once'}
+              isSubmitting={isSubmitting}
+              currentStep={currentStep}
+              onStepChange={setCurrentStep}
+              onSubmit={handleSubmit}
+              validateQuestion={validateQuestion}
+              onBack={() => setShowGateScreen(true)}
+              backLabel="Atrás"
+              previousLabel="Anterior"
+              questionHandlers={questionHandlers}
+              uploadingQuestionId={uploadingQuestionId}
+              fileErrors={fileErrors}
+              lightboxImage={lightboxImage}
+              onLightboxChange={setLightboxImage}
+            />
           </div>
         )}
       </div>
-
-      {/* Lightbox para ampliar flyers */}
-      {lightboxImage && (
-        <div 
-          onClick={() => setLightboxImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            cursor: 'zoom-out',
-            animation: 'fadeIn 0.2s ease-out'
-          }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{ 
-              position: 'relative', 
-              maxWidth: '90%', 
-              maxHeight: '90%', 
-              animation: 'scaleUp 0.2s ease-out' 
-            }}
-          >
-            <img 
-              src={lightboxImage} 
-              alt="Flyer ampliado" 
-              style={{ 
-                maxWidth: '100%', 
-                maxHeight: '90vh', 
-                borderRadius: 'var(--radius-sm)',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-                objectFit: 'contain',
-                display: 'block'
-              }} 
-            />
-            <button 
-              onClick={() => setLightboxImage(null)}
-              style={{
-                position: 'absolute',
-                top: '-40px',
-                right: '0',
-                background: 'none',
-                border: 'none',
-                color: '#fff',
-                fontSize: '2rem',
-                cursor: 'pointer',
-                lineHeight: '1',
-                padding: '5px'
-              }}
-            >
-              &times;
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
+    );
+  }
 
   return (
     <>
